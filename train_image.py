@@ -6,14 +6,17 @@ import torch
 import numpy as np
 import hydra
 import logging
+import wandb
+
 from omegaconf import OmegaConf
 from easydict import EasyDict
 from tqdm import tqdm
 from PIL import Image
-from utils import seed_everything, get_dataset, get_model, prep_image_for_eval, save_image_to_wandb
 from skimage.metrics import structural_similarity as ssim_func
 from skimage.metrics import peak_signal_noise_ratio as psnr_func
-import wandb
+
+from sampler import mt_sampler
+from utils import seed_everything, get_dataset, get_model, prep_image_for_eval, save_image_to_wandb
 
 
 log = logging.getLogger(__name__)
@@ -32,23 +35,20 @@ def save_src_for_reproduce(configs, out_dir):
     OmegaConf.save(dict(configs), os.path.join('outputs', out_dir, 'src', 'config.yaml'))
 
 
-def mt_sampler(data, y, preds, size):
-    # Given size is ratio of training data
-    if type(size) == float:
-        n = int(size * len(data))
-    # Given size is actual number of training data
-    else:
-        n = int(size)
-
-    # mt sampling (returns indices)
-    dif = torch.sum(torch.abs(y-preds), 1)
-    _, ind = torch.topk(dif, n)
-
-    # get sampled data
-    sampled_data = data[ind]
-    sampled_y = y[ind]
+def tint_data_with_samples(data, sample_idx, model_configs):
+    """Relabel the data with given vis_label at the sample_idx indices."""
+    if sample_idx is None: 
+        return None
     
-    return sampled_data, sampled_y
+    new_data = data.detach().clone()
+    if model_configs.INPUT_OUTPUT.data_range == 1:
+        vis_label = torch.tensor([0.75, 0.0, 0.0]).to(data.device)
+    else:
+        vis_label = torch.tensor([0.5, 0.0, 0.0]).to(data.device)
+
+    new_data[sample_idx] = torch.clamp(new_data[sample_idx] + vis_label, max=1.0)
+
+    return new_data
 
 
 def train(configs, model, dataset, device='cuda'):
@@ -66,7 +66,7 @@ def train(configs, model, dataset, device='cuda'):
     model = model.to(device)
 
     # prepare training settings
-    process_bar = tqdm(range(train_configs.iterations))
+    process_bar = tqdm(range(train_configs.iterations), disable=True)
     # process_bar = tqdm(range(1000)) # TODO: for sweep only
     H, W, C = dataset.H, dataset.W, dataset.C
     best_psnr, best_ssim = 0, 0
@@ -84,7 +84,8 @@ def train(configs, model, dataset, device='cuda'):
         # mt sampling
         with torch.no_grad():
             preds = model(coords, None)
-            sampled_coords, sampled_labels = mt_sampler(coords, labels, preds, train_configs.mt_ratio)
+            sampled_coords, sampled_labels, idx = mt_sampler(coords, labels, preds, train_configs.mt_ratio)
+            tinted_labels = tint_data_with_samples(labels, idx, model_configs)
 
         sampled_preds = model(sampled_coords, None)
         # MSE loss
@@ -119,9 +120,12 @@ def train(configs, model, dataset, device='cuda'):
             if step == 0:
                 save_image_to_wandb(log_dict, ori_img, "GT", dataset_configs, H, W)
                 
-            # Save reconstructed image
+            # Save reconstructed image (and visualize sampled points)
             if step%train_configs.save_interval==0:
                 save_image_to_wandb(log_dict, preds, "Reconstruction", dataset_configs, H, W)
+                if tinted_labels is not None:
+                    tinted_img = prep_image_for_eval(tinted_labels, model_configs, H, W, C)
+                    save_image_to_wandb(log_dict, tinted_img, "Sampled points", dataset_configs, H, W)
 
             wandb.log(log_dict, step=step)
 
