@@ -32,6 +32,25 @@ def save_src_for_reproduce(configs, out_dir):
     OmegaConf.save(dict(configs), os.path.join('outputs', out_dir, 'src', 'config.yaml'))
 
 
+def mt_sampler(data, y, preds, size):
+    # Given size is ratio of training data
+    if type(size) == float:
+        n = int(size * len(data))
+    # Given size is actual number of training data
+    else:
+        n = int(size)
+
+    # mt sampling (returns indices)
+    dif = torch.sum(torch.abs(y-preds), 1)
+    _, ind = torch.topk(dif, n)
+
+    # get sampled data
+    sampled_data = data[ind]
+    sampled_y = y[ind]
+    
+    return sampled_data, sampled_y
+
+
 def train(configs, model, dataset, device='cuda'):
     train_configs = configs.TRAIN_CONFIGS
     dataset_configs = configs.DATASET_CONFIGS
@@ -62,10 +81,14 @@ def train(configs, model, dataset, device='cuda'):
 
     # train
     for step in process_bar:
-        normalization_vector = torch.tensor([W, H])
-        preds = model(coords, normalization_vector)
+        # mt sampling
+        with torch.no_grad():
+            preds = model(coords, None)
+            sampled_coords, sampled_labels = mt_sampler(coords, labels, preds, train_configs.mt_ratio)
+
+        sampled_preds = model(sampled_coords, None)
         # MSE loss
-        loss = ((preds - labels) ** 2).mean()
+        loss = ((sampled_preds - sampled_labels) ** 2).mean()
 
         # backprop
         opt.zero_grad()
@@ -139,7 +162,7 @@ def main(configs):
 
     # Save run name with current time
     time_str = str(datetime.datetime.now().time()).replace(":", "").replace(".", "")
-    configs.TRAIN_CONFIGS.out_dir += time_str
+    configs.TRAIN_CONFIGS.out_dir += "_" + time_str
 
     # Seed python, numpy, pytorch
     seed_everything(configs.TRAIN_CONFIGS.seed)

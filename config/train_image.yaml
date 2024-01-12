@@ -1,10 +1,11 @@
 TRAIN_CONFIGS:
-  out_dir: wire
+  out_dir: siren_mt_95
   lr: 1e-3
-  iterations: 10000
+  iterations: 5000
   save_interval: 100
-  device: cuda:1
+  device: cuda:2
   seed: 42
+  mt_ratio: 0.95
 
 DATASET_CONFIGS:
   data_type: image
@@ -15,9 +16,9 @@ DATASET_CONFIGS:
 
 WANDB_CONFIGS:
   use_wandb: 1
-  wandb_project: test
+  wandb_project: mt_exploration
   wandb_entity: hku_inr
-  group: test
+  group: siren
 
 defaults:
   - model_config: wire
