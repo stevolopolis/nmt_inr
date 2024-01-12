@@ -6,6 +6,6 @@ INPUT_OUTPUT:
 
 NET:
   num_layers: 5
-  dim_hidden: 64
+  dim_hidden: 256
   num_frequencies: 26
   use_bias: True
