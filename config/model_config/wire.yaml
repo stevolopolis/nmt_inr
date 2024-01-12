@@ -1,0 +1,12 @@
+name: WIRE
+
+INPUT_OUTPUT:
+  coord_mode: 2                # 0: [0, H-1] x [0, W-1], 1: [0, 1]^2,  2: [-1, 1]^2
+  data_range: 1                # 0: [0, 1]^2,  1: [-1, 1]^2
+
+NET:
+  num_layers: 5
+  dim_hidden: 64
+  first_omega_0: 20.
+  hidden_omega_0: 20.
+  scale: 20.

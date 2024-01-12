@@ -1,0 +1,32 @@
+TRAIN_CONFIGS:
+  out_dir: wire
+  lr: 1e-3
+  iterations: 10000
+  save_interval: 100
+  device: cuda:1
+  seed: 42
+
+DATASET_CONFIGS:
+  data_type: image
+  file_path: ../datasets/kodak/kodim01.png
+  color_mode: RGB              # RGB or L (grayscale)
+  img_size: null
+
+
+WANDB_CONFIGS:
+  use_wandb: 1
+  wandb_project: test
+  wandb_entity: hku_inr
+  group: test
+
+defaults:
+  - model_config: wire
+
+# hydra logging
+hydra:
+  run:
+    dir: outputs/${TRAIN_CONFIGS.out_dir}/hydra_configs/${now:%Y-%m-%d-%H-%M-%S}
+    
+  sweep:
+    dir: outputs/${TRAIN_CONFIGS.out_dir}/hydra_configs/${now:%Y-%m-%d-%H-%M-%S}/${hydra.job.name}
+    subdir: ${hydra.job.num}

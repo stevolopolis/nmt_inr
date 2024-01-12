@@ -1,0 +1,12 @@
+name: SIREN
+
+INPUT_OUTPUT:
+  coord_mode: 2                # 0: [0, H-1] x [0, W-1], 1: [0, 1]^2,  2: [-1, 1]^2
+  data_range: 0                # 0: [0, 1]^2,  1: [-1, 1]^2
+
+NET:
+  num_layers: 5
+  dim_hidden: 128
+  w0: 30.0
+  w0_initial: 30.0
+  use_bias: True
