@@ -10,3 +10,7 @@ conda install conda-forge::wandb
 conda install conda-forge::scikit-learn
 conda install anaconda::scikit-image
 ```
+
+## Current train_image.py and bash script
+Experiment - basic visualization of MT dynamics at different sampling ratios {0.2, 0.4, 0.6, 0.8, 1.0}.
+Results at https://wandb.ai/hku_inr/mt_exploration/groups/ratio
