@@ -11,6 +11,8 @@ conda install conda-forge::scikit-learn
 conda install anaconda::scikit-image
 ```
 
-## Current train_image.py and bash script
-Experiment - basic visualization of MT dynamics at different sampling ratios {0.2, 0.4, 0.6, 0.8, 1.0}.
-Results at https://wandb.ai/hku_inr/mt_exploration/groups/ratio
+## Updates
+6:23pm EST Jan12 
+- `Experiment` - General exploration about MT dyanmics and MT wallclock time performance
+- `Script` - `scripts/mt_ratio.sh` (x2: different sets of kodak images)
+- `Log` - https://wandb.ai/hku_inr/mt_exploration/groups/general
