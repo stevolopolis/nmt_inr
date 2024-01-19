@@ -15,6 +15,7 @@ from PIL import Image
 from skimage.metrics import structural_similarity as ssim_func
 from skimage.metrics import peak_signal_noise_ratio as psnr_func
 
+from scheduler import *
 from sampler import mt_sampler
 from utils import seed_everything, get_dataset, get_model, prep_image_for_eval, save_image_to_wandb
 
@@ -60,6 +61,7 @@ def train(configs, model, dataset, device='cuda'):
     # optimizer and scheduler
     opt = torch.optim.Adam(model.parameters(), lr=train_configs.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, train_configs.iterations, eta_min=1e-6)
+    mt_scheduler = mt_scheduler_factory(configs.EXP_CONFIGS.scheduler_type)
 
     # prep model for training
     model.train()
@@ -82,9 +84,10 @@ def train(configs, model, dataset, device='cuda'):
     # train
     for step in process_bar:
         # mt sampling
+        mt_ratio = mt_scheduler(step, train_configs.iterations, float(train_configs.mt_ratio))
         with torch.no_grad():
             preds = model(coords, None)
-            sampled_coords, sampled_labels, idx = mt_sampler(coords, labels, preds, train_configs.mt_ratio)
+            sampled_coords, sampled_labels, idx = mt_sampler(coords, labels, preds, mt_ratio)
             tinted_labels = tint_data_with_samples(labels, idx, model_configs)
 
         sampled_preds = model(sampled_coords, None)
@@ -114,7 +117,8 @@ def train(configs, model, dataset, device='cuda'):
                         "loss": loss.item(),
                         "psnr": psnr_score,
                         "ssim": ssim_score,
-                        "lr": scheduler.get_last_lr()[0]
+                        "lr": scheduler.get_last_lr()[0],
+                        "mt": mt_ratio
                         }
             # Save ground truth image (only at 1st iteration)
             if step == 0:
