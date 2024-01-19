@@ -1,11 +1,14 @@
 TRAIN_CONFIGS:
-  out_dir: siren_mt_95
+  out_dir: siren
   lr: 1e-3
   iterations: 5000
   save_interval: 100
-  device: cuda:2
+  device: cuda:0
   seed: 42
-  mt_ratio: 0.95
+  mt_ratio: 0.2
+
+EXP_CONFIGS:
+  scheduler_type: step
 
 DATASET_CONFIGS:
   data_type: image
@@ -18,10 +21,10 @@ WANDB_CONFIGS:
   use_wandb: 1
   wandb_project: mt_exploration
   wandb_entity: hku_inr
-  group: siren
+  group: scheduler
 
 defaults:
-  - model_config: wire
+  - model_config: siren
 
 # hydra logging
 hydra:
