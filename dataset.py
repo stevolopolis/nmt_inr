@@ -1,11 +1,72 @@
 import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
+import torchaudio
 from PIL import Image
 from einops import rearrange
 import numpy as np
 import skimage
 import skimage
+
+
+class AudioFileDataset(torchaudio.datasets.LIBRISPEECH):
+    def __init__(
+        self,
+        dataset_configs,
+        input_output_configs
+    ):
+        super().__init__(root='data', url='test-clean', download=False)
+
+        self.coord_mode = input_output_configs.coord_mode
+        self.data_range = input_output_configs.data_range
+
+        # LibriSpeech contains audio 16kHz rate
+        self.sample_rate = 16000
+        self.num_secs = dataset_configs.num_secs
+        self.num_waveform_samples = int(self.num_secs * self.sample_rate)
+        self.sample_idx = dataset_configs.sample_idx
+
+        # __getitem__ returns a tuple, where first entry contains raw waveform in [-1, 1]
+        self.labels = super().__getitem__(self.sample_idx)[0].float()
+
+        # Normalize data to lie in [0, 1]
+        if self.data_range == 0:
+            self.labels = (self.labels + 1) / 2
+
+        # Extract only first num_waveform_samples from waveform
+        if self.num_secs != -1:
+            # Shape (channels, num_waveform_samples)
+            self.labels = self.labels[:, : self.num_waveform_samples].view(-1, 1)
+
+        self.T, self.C = self.num_waveform_samples, 1
+        if self.coord_mode == 0:
+            grid = [torch.linspace(0.0, self.T-1, self.T)] # [0, T-1]
+        elif self.coord_mode == 1:
+            grid = [torch.linspace(0., 1., self.T)] # [0, 1]
+        elif self.coord_mode == 2:
+            grid = [torch.linspace(-5., 5., self.T)] # [-5, 5] following coin++
+        elif self.coord_mode == 4:
+            grid = [torch.linspace(-0.5, 0.5, self.T)] # [0.5, 0.5]
+        else:
+            raise NotImplementedError
+
+        self.coords = torch.stack(
+            torch.meshgrid(grid),
+            dim=-1,
+        ).view(-1, 1)
+
+        self.dim_in = 1
+        self.dim_out = 1
+        
+
+    def __len__(self):
+        return 1
+
+    def get_data_shape(self):
+        return (self.T, self.C)
+
+    def get_data(self):
+        return self.coords, self.labels
 
 
 class ImageFileDataset(Dataset):

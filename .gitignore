@@ -2,3 +2,5 @@ __pycache__
 outputs
 wandb
 logs
+data
+.vscode

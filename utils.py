@@ -14,6 +14,16 @@ def seed_everything(seed: int):
     torch.backends.cudnn.benchmark = True
 
 
+def prep_audio_for_eval(audio, config, t, c):
+    if config.INPUT_OUTPUT.data_range == 1:
+        audio = audio.clamp(-1, 1).view(t, c)       # clip to [-1, 1]
+    else: # data range == 0
+        audio = audio.clamp(0, 1).view(t, c)       # clip to [0, 1]
+        audio = audio*2 - 1                         # [0, 1] -> [-1, 1]
+
+    audio = audio.flatten().cpu().detach().numpy()
+    return audio
+
 def prep_image_for_eval(image, config, h, w, c):
     if config.INPUT_OUTPUT.data_range == 1:
         image = image.clamp(-1, 1).view(h, w, c)       # clip to [-1, 1]
@@ -38,7 +48,10 @@ def get_dataset(dataset_configs, input_output_configs):
         dataset = VideoFileDatasetAlt(dataset_configs, input_output_configs)
     elif dataset_configs.data_type == "image":
         dataset = ImageFileDataset(dataset_configs, input_output_configs)
-        
+    elif dataset_configs.data_type == "audio":
+        dataset = AudioFileDataset(dataset_configs, input_output_configs) 
+    else:
+         raise NotImplementedError(f"Dataset {dataset_configs.data_type} not implemented")
     return dataset
 
 
