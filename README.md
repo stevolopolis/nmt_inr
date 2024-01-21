@@ -1,6 +1,10 @@
 # NMT INR
 
 ## Updates
+10:01am EST Jan21
+- `Analysis` - Added code to visualize MT progression. RMB to add two subdirectories to run the `analysis/mt_dyanmics.py`:
+    - `vis/dynamics`
+    - `vis/iou`
 6:23pm EST Jan12 
 - `Experiment` - General exploration about MT dyanmics and MT wallclock time performance
 - `Script` - `scripts/mt_ratio.sh` (x2: different sets of kodak images)
