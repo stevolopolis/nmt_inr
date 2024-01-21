@@ -16,7 +16,7 @@ from skimage.metrics import structural_similarity as ssim_func
 from skimage.metrics import peak_signal_noise_ratio as psnr_func
 
 from scheduler import *
-from sampler import mt_sampler
+from sampler import mt_sampler, save_samples
 from utils import seed_everything, get_dataset, get_model, prep_image_for_eval, save_image_to_wandb
 
 
@@ -55,13 +55,21 @@ def tint_data_with_samples(data, sample_idx, model_configs):
 def train(configs, model, dataset, device='cuda'):
     train_configs = configs.TRAIN_CONFIGS
     dataset_configs = configs.DATASET_CONFIGS
+    exp_configs = configs.EXP_CONFIGS
     model_configs = configs.model_config
     out_dir = train_configs.out_dir
 
     # optimizer and scheduler
-    opt = torch.optim.Adam(model.parameters(), lr=train_configs.lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, train_configs.iterations, eta_min=1e-6)
-    mt_scheduler = mt_scheduler_factory(configs.EXP_CONFIGS.scheduler_type)
+    if exp_configs.optimizer_type == "adam":
+        opt = torch.optim.Adam(model.parameters(), lr=train_configs.lr)
+    elif exp_configs.optimizer_type == "sgd":
+        opt = torch.optim.SGD(model.parameters(), lr=train_configs.lr)
+    if exp_configs.lr_scheduler_type == "constant":
+        scheduler = torch.optim.lr_scheduler.ConstantLR(opt, factor=1.0, total_iters=0)
+    elif exp_configs.lr_scheduler_type == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, train_configs.iterations, eta_min=1e-6)
+
+    mt_scheduler = mt_scheduler_factory(exp_configs.scheduler_type)
 
     # prep model for training
     model.train()
@@ -81,14 +89,19 @@ def train(configs, model, dataset, device='cuda'):
     ori_img = labels.view(H, W, C).cpu().detach().numpy()
     ori_img = (ori_img + 1) / 2 if model_configs.INPUT_OUTPUT.data_range == 1 else ori_img
 
+    # sampling log
+    sampling_history = dict()
+
     # train
     for step in process_bar:
         # mt sampling
-        mt_ratio = mt_scheduler(step, train_configs.iterations, float(train_configs.mt_ratio))
+        mt_ratio = mt_scheduler(step, train_configs.iterations, float(exp_configs.mt_ratio))
         with torch.no_grad():
             preds = model(coords, None)
             sampled_coords, sampled_labels, idx = mt_sampler(coords, labels, preds, mt_ratio)
             tinted_labels = tint_data_with_samples(labels, idx, model_configs)
+            if step % train_configs.save_interval == 0:
+                save_samples(sampling_history, step, train_configs.iterations, sampled_coords, train_configs.sampling_path)
 
         sampled_preds = model(sampled_coords, None)
         # MSE loss

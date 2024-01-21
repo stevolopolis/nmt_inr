@@ -1,18 +1,21 @@
 TRAIN_CONFIGS:
-  out_dir: siren
+  out_dir: siren_sampling
   lr: 1e-3
   iterations: 5000
   save_interval: 100
-  device: cuda:0
+  device: cuda:2
   seed: 42
-  mt_ratio: 0.2
+  sampling_path: sampling_history.pkl
 
 EXP_CONFIGS:
-  scheduler_type: step
+  scheduler_type: constant
+  mt_ratio: 0.2
+  optimizer_type: adam
+  lr_scheduler_type: constant
 
 DATASET_CONFIGS:
   data_type: image
-  file_path: ../datasets/kodak/kodim01.png
+  file_path: ../datasets/kodak/kodim05.png
   color_mode: RGB              # RGB or L (grayscale)
   img_size: null
 
@@ -21,7 +24,7 @@ WANDB_CONFIGS:
   use_wandb: 1
   wandb_project: mt_exploration
   wandb_entity: hku_inr
-  group: scheduler
+  group: dynamics
 
 defaults:
   - model_config: siren

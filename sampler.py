@@ -1,5 +1,6 @@
 import math
 import torch
+import pickle
 
 
 def mt_sampler(data, y, preds, size):
@@ -21,3 +22,9 @@ def mt_sampler(data, y, preds, size):
     sampled_y = y[idx]
     
     return sampled_data, sampled_y, idx
+
+
+def save_samples(sample_history, step, max_steps, samples, file_name):
+    sample_history[str(step)] = samples.detach().cpu().numpy()
+    with open(file_name, 'wb') as f:
+        pickle.dump(sample_history, f)
