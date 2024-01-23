@@ -4,10 +4,10 @@ wandb
 logs
 data
 .vscode
-.png
-.mp4
-.pkl
+*.png
+*.mp4
+*.pkl
 vis
-.out
-.txt
-csv
+*.out
+*.txt
+*csv
