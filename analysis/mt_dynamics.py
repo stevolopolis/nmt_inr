@@ -3,16 +3,41 @@ import torch
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 from tqdm import tqdm
 from PIL import Image
 from torchvision.transforms import ToTensor
 
 
-def sampling_iou(sample1, sample2, H, W):
-    n_total = H * W
-    n_overlap = torch.sum((sample1 == sample2).all(dim=1))
+def loss_vid(losses, output_file, bins=40, interval=100):
+    fig, ax = plt.subplots()
 
+    def update(frame):
+        ax.clear()
+        key, values = frame
+        ax.hist(values, bins=bins, edgecolor='black', alpha=0.7)
+        ax.set_title(f'Histogram for step {key}')
+        ax.set_xlabel('Loss')
+        ax.set_ylabel('Frequency')
+
+    frames = list(losses.items())
+
+    ani = FuncAnimation(fig, update, frames=frames, interval=interval, repeat=False)
+
+    ani.save(output_file, writer='ffmpeg', fps=3)
+    plt.close()
+
+
+def sampling_iou(sample1, sample2, H, W):
+    n_total = len(sample1)
+    sample1_np = np.array(sample1)
+    sample1_set = set([tuple(elem) for elem in sample1_np])
+    sample2_np = np.array(sample2)
+    sample2_set = set([tuple(elem) for elem in sample2_np])
+
+    n_overlap = len(set.intersection(sample1_set, sample2_set))
+    
     return n_overlap / n_total
 
 
@@ -77,47 +102,60 @@ def append_frame_to_vid(frame, out, last=False):
     out.write(frame)
 
 
+def mt_vid(sample_history, output_path, H, W):
+    vid_out = init_vid_saver(output_path, H, W, fps=10)
+    for step in tqdm(sample_history.keys()):
+        data = init_data(H, W, None)
+        samples = normalize_samples(sample_history[step], H, W)
+        frame = superimpose_samples(data, samples, data_range)
+        append_frame_to_vid(frame, vid_out)
+        
+    vid_out.release()
+
+
 if __name__ == '__main__':
     model = "siren"
-    models = ['mlp', 'siren', 'ffn']
+    models = ['siren']  # ['mlp', 'siren', 'ffn']
     data_idx = '07'
-    data_idxs = ['07', '14', '15', '17'] # , '05', '18', '20', '21'
+    data_idxs = ['05'] # ['07', '14', '15', '17'] # , '05', '18', '20', '21'
     scheduler = 'constant'
-    mt_ratio = '0.4'
+    lr_scheduler = 'constant'
+    mt_ratio = ['0.2', '0.4', '0.6', '0.8']
 
     for model in models:
         for data_idx in data_idxs:
-            model_name = "%s_%s_constant_kodak%s" % (model, scheduler, data_idx)
-            sample_history_path = "logs/sampling/scheduler_%s.pkl" % model_name
-            data_path = "../datasets/kodak/kodim%s.png" % data_idx
-            vid_path = "vis/dynamics/%s_dynamics.mp4" % model_name
-            iou_curve_path = "vis/iou/%s_iou_curve.png" % model_name
-            H, W = 512, 768
-            data_range = 1
+            for ratio in mt_ratio:
+                model_name = "%s_mt%s_%s_%s_kodak%s" % (model, ratio, scheduler, lr_scheduler, data_idx)
+                sample_history_path = "logs/sampling/sampling_%s_2.pkl" % model_name
+                loss_history_path = "logs/loss/loss_%s_2.pkl" % model_name
+                data_path = "../datasets/kodak/kodim%s.png" % data_idx
+                sampling_vid_path = "vis/dynamics/loss/sampling_%s_dynamics.mp4" % model_name
+                loss_vid_path = "vis/dynamics/loss_%s_dynamics.mp4" % model_name
+                iou_curve_path = "vis/iou/%s_iou_curve.png" % model_name
+                H, W = 512, 768
+                data_range = 1
 
-            with open(sample_history_path, 'rb') as f:
-                sample_history = pickle.load(f)
+                with open(sample_history_path, 'rb') as f:
+                    sample_history = pickle.load(f)
+                with open(loss_history_path, 'rb') as f:
+                    loss_history = pickle.load(f)
 
-            print("Converting sampling history to video...")    
+                print("Converting sampling history to video...")
+                mt_vid(sample_history, sampling_vid_path, H, W)
+                print("Sampling history video completed.")
 
-            vid_out = init_vid_saver(vid_path, H, W, fps=10)
-            for step in tqdm(sample_history.keys()):
-                data = init_data(H, W, None)
-                samples = normalize_samples(sample_history[step], H, W)
-                frame = superimpose_samples(data, samples, data_range)
-                append_frame_to_vid(frame, vid_out)
+                print("Converting loss history to video...")
+                loss_vid(loss_history, loss_vid_path)
+                print("Loss history video completed.")
+
+                print("Plotting IOU curve")
+
+                sample_arr = []
+                for step in tqdm(sample_history.keys()):
+                    samples = normalize_samples(sample_history[step], H, W)
+                    sample_arr.append(samples)
+
+                iou_curve = sampling_iou_curve(sample_arr, H, W)
+                plot_iou_curve(iou_curve, iou_curve_path)
                 
-            vid_out.release()
-
-            print("Sampling history video completed.")
-            print("Plotting IOU curve")
-
-            sample_arr = []
-            for step in tqdm(sample_history.keys()):
-                samples = normalize_samples(sample_history[step], H, W)
-                sample_arr.append(samples)
-
-            iou_curve = sampling_iou_curve(sample_arr, H, W)
-            plot_iou_curve(iou_curve, iou_curve_path)
-            
-            print("IOU curve completed.")
+                print("IOU curve completed.")

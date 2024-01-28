@@ -29,6 +29,27 @@ class PosEncoding(nn.Module):
         return coords_pos_enc       #.reshape(1, coords.shape[0], self.out_dim)
 
 
+class RandomFourierFeatures(nn.Module):
+    def __init__(self, in_features, num_frequencies=13, sigma=10):
+        super().__init__()
+
+        self.in_features = in_features
+        self.num_frequencies = num_frequencies
+        gauss_mean = torch.zeros((in_features, num_frequencies))
+        gauss_std = torch.ones((in_features, num_frequencies)) * sigma
+        self.B = torch.normal(mean=gauss_mean, std=gauss_std)
+        self.B = torch.cat((torch.ones((in_features, 1)), self.B), axis=1)
+
+        self.out_dim = in_features + in_features * self.num_frequencies
+
+    def forward(self, coords):
+        self.B = self.B.to(coords.device)
+        coords = torch.matmul(2 * torch.pi * coords, self.B)
+        x = torch.cat((torch.sin(coords), torch.cos(coords)), -1)
+
+        return x
+
+
 class ReLULayer(nn.Module):
     def __init__(
         self,

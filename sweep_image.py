@@ -47,8 +47,6 @@ def tint_data_with_samples(data, sample_idx, model_configs):
         vis_label = torch.tensor([0.75, 0.0, 0.0]).to(data.device)
     else:
         vis_label = torch.tensor([0.5, 0.0, 0.0]).to(data.device)
-    if data.shape[-1] == 1:
-        vis_label = vis_label[0]
 
     new_data[sample_idx] = torch.clamp(new_data[sample_idx] + vis_label, max=1.0)
 
@@ -59,15 +57,14 @@ def train(configs, model, dataset, device='cuda'):
     train_configs = configs.TRAIN_CONFIGS
     dataset_configs = configs.DATASET_CONFIGS
     exp_configs = configs.EXP_CONFIGS
-    network_configs = configs.NETWORK_CONFIGS
     model_configs = configs.model_config
     out_dir = train_configs.out_dir
 
     # optimizer and scheduler
     if exp_configs.optimizer_type == "adam":
-        opt = torch.optim.Adam(model.parameters(), lr=network_configs.lr)
+        opt = torch.optim.Adam(model.parameters(), lr=train_configs.lr)
     elif exp_configs.optimizer_type == "sgd":
-        opt = torch.optim.SGD(model.parameters(), lr=network_configs.lr)
+        opt = torch.optim.SGD(model.parameters(), lr=train_configs.lr)
     if exp_configs.lr_scheduler_type == "constant":
         scheduler = torch.optim.lr_scheduler.ConstantLR(opt, factor=1.0, total_iters=0)
     elif exp_configs.lr_scheduler_type == "cosine":
@@ -198,7 +195,7 @@ def train(configs, model, dataset, device='cuda'):
     return best_psnr, best_ssim
 
 
-@hydra.main(version_base=None, config_path='config', config_name='train_image')
+@hydra.main(version_base=None, config_path='config', config_name='sweep_image')
 def main(configs):
     configs = EasyDict(configs)
 
@@ -211,16 +208,9 @@ def main(configs):
     # Saving config and settings for reproduction
     save_src_for_reproduce(configs, configs.TRAIN_CONFIGS.out_dir)
 
-    #########################
-    # Specified because same config file was used to train
-    # 8-layer SIRENS.
-    # Only temporary.
-    #########################
     # model configs
-    configs.model_config.INPUT_OUTPUT.data_range = configs.NETWORK_CONFIGS.data_range
-    configs.model_config.INPUT_OUTPUT.coord_mode = configs.NETWORK_CONFIGS.coord_mode
-    if configs.model_config.name == "FFN":
-        configs.model_config.NET.rff_std = configs.NETWORK_CONFIGS.rff_std
+    configs.model_config.INPUT_OUTPUT.data_range = configs.EXP_CONFIGS2.data_range
+    configs.model_config.INPUT_OUTPUT.coord_mode = configs.EXP_CONFIGS3.coord_mode
 
     # model and dataloader
     dataset = get_dataset(configs.DATASET_CONFIGS, configs.model_config.INPUT_OUTPUT)

@@ -3,24 +3,22 @@ TRAIN_CONFIGS:
   lr: 1e-3
   iterations: 5000
   save_interval: 100
-  mt_save_interval: 100
   device: cuda:2
   seed: 42
   sampling_path: sampling_history.pkl
-  loss_path: loss_history.pkl
-
-EXP_CONFIGS:
   scheduler_type: constant
-  mt_ratio: 0.2
-  optimizer_type: adam
+  mt_ratio: 1.0
+  optimizer_type: sgd
   lr_scheduler_type: constant
-  strategy_type: dense
 
-NETWORK_CONFIGS:
-  lr: 1e-3
+EXP_CONFIGS1:
+  lr: 0.001
+  
+EXP_CONFIGS2:
   data_range: 0
+  
+EXP_CONFIGS3:
   coord_mode: 2
-  rff_std: 10
 
 DATASET_CONFIGS:
   data_type: image
@@ -28,11 +26,12 @@ DATASET_CONFIGS:
   color_mode: RGB              # RGB or L (grayscale)
   img_size: null
 
+
 WANDB_CONFIGS:
   use_wandb: 1
   wandb_project: mt_exploration
   wandb_entity: hku_inr
-  group: dynamics
+  group: sweep
 
 defaults:
   - model_config: siren

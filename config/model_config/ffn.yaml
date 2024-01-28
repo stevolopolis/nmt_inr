@@ -5,7 +5,9 @@ INPUT_OUTPUT:
   data_range: 0                # 0: [0, 1]^2,  1: [-1, 1]^2
 
 NET:
-  num_layers: 5
+  num_layers: 8
   dim_hidden: 256
-  num_frequencies: 26
+  num_frequencies: 256
+  rff: True
+  rff_std: 10
   use_bias: True
