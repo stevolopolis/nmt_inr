@@ -1,11 +1,25 @@
 TRAIN_CONFIGS:
   out_dir: siren_audio
-  lr: 1e-4
-  iterations: 10000
+  iterations: 5000
   save_interval: 100
+  mt_save_interval: 100
   device: cuda:0
   seed: 42
-  mt_ratio: 1
+  sampling_path: sampling_history.pkl
+  loss_path: loss_history.pkl
+
+EXP_CONFIGS:
+  scheduler_type: cosine
+  mt_ratio: 0.2
+  optimizer_type: adam
+  lr_scheduler_type: cosine
+  strategy_type: dense
+
+NETWORK_CONFIGS:
+  lr: 1e-4
+  data_range: 0
+  coord_mode: 2
+  rff_std: 10
 
 DATASET_CONFIGS:
   data_type: audio
@@ -14,7 +28,7 @@ DATASET_CONFIGS:
 
 WANDB_CONFIGS:
   use_wandb: 1
-  wandb_project: mt_exploration
+  wandb_project: audio
   wandb_entity: hku_inr
   group: siren
 
