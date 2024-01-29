@@ -6,7 +6,6 @@ from PIL import Image
 from einops import rearrange
 import numpy as np
 import skimage
-import skimage
 import os
 
 
@@ -221,7 +220,7 @@ class MeshSDF(Dataset):
         self.coord_mode = input_output_configs.coord_mode
         self.data_range = input_output_configs.data_range
 
-        self.num_samples = self.config.num_samples
+        # self.num_samples = self.config.num_samples
         self.pointcloud_path = self.config.xyz_file
         self.coarse_scale = self.config.coarse_scale
         self.fine_scale = self.config.fine_scale
@@ -234,9 +233,8 @@ class MeshSDF(Dataset):
         self.load_mesh(self.config.xyz_file)
         
         # precompute sdf and occupancy grid
-        render_resolution = self.config.render_resolution
-        self.render_resolution = render_resolution
-        self.load_precomputed_occu_grid(self.config.xyz_file, render_resolution)
+        self.render_resolution = self.config.render_resolution
+        self.load_precomputed_occu_grid(self.config.xyz_file, self.render_resolution)
 
     def load_precomputed_occu_grid(self, xyz_file, render_resolution):
         # load from files if exists
@@ -304,9 +302,9 @@ class MeshSDF(Dataset):
         return coords
 
     def sample_surface(self):
-        idx = np.random.randint(0, self.v.shape[0], self.num_samples)
-        points = self.v[idx]
-        points[::2] += np.random.laplace(scale=self.coarse_scale, size=(points.shape[0]//2, points.shape[-1]))
+        # idx = np.random.randint(0, self.v.shape[0], self.num_samples)
+        points = self.v
+        points[::2] += np.random.laplace(scale=self.coarse_scale, size=(points.shape[0] - points.shape[0]//2, points.shape[-1]))
         points[1::2] += np.random.laplace(scale=self.fine_scale, size=(points.shape[0]//2, points.shape[-1]))
 
         # wrap around any points that are sampled out of bounds

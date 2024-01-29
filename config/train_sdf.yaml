@@ -1,19 +1,20 @@
 TRAIN_CONFIGS:
-  out_dir: siren_sdf
-  iterations: 5000
-  save_interval: 100
-  mt_save_interval: 100
-  device: cuda:0
+  out_dir: siren_mt
+  iterations: 10000
+  save_interval: 1000
+  mt_save_interval: 1000
+  batch_size: 200000
+  device: cuda:1
   seed: 42
   sampling_path: sampling_history.pkl
   loss_path: loss_history.pkl
 
 EXP_CONFIGS:
-  scheduler_type: constant
+  scheduler_type: step
   mt_ratio: 0.2
   optimizer_type: adam
   lr_scheduler_type: cosine
-  strategy_type: void
+  strategy_type: incremental
 
 NETWORK_CONFIGS:
   lr: 1e-4
@@ -25,16 +26,15 @@ DATASET_CONFIGS:
   data_type: sdf
   xyz_file: data/stanford3d/gt_dragon.xyz
   # default settings from BACON
-  num_samples: 27000
   coarse_scale: 1.0e-1
   fine_scale: 1.0e-3
   render_resolution: 512
 
 WANDB_CONFIGS:
   use_wandb: 1
-  wandb_project: audio
+  wandb_project: sdf
   wandb_entity: hku_inr
-  group: siren
+  group: dragon
 
 defaults:
   - model_config: siren

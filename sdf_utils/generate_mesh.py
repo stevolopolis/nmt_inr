@@ -2,10 +2,9 @@ import torch
 import numpy as np
 import mcubes
 import trimesh
-from tqdm import tqdm
 import math
 
-def generate_mesh(model, N=512, return_sdf=False):
+def generate_mesh(model, N=512, return_sdf=False, device='cuda'):
     num_outputs = 1     # hard code this because the current models generate only one output
     # write output
     x = torch.linspace(-0.5, 0.5, N)
@@ -13,16 +12,16 @@ def generate_mesh(model, N=512, return_sdf=False):
         x = torch.arange(-N//2, N//2) / N
         x = x.float()
     x, y, z = torch.meshgrid(x, x, x)
-    render_coords = torch.stack((x.flatten(), y.flatten(), z.flatten()), dim=-1).cuda()
+    render_coords = torch.stack((x.flatten(), y.flatten(), z.flatten()), dim=-1).to(device)
     sdf_values = [np.zeros((N**3, 1)) for i in range(num_outputs)]
 
     # render in mini batch to save memory
     bsize = int(400**2)
     model.eval()
-    for i in tqdm(range(math.ceil(N**3 / bsize))):
+    for i in range(math.ceil(N**3 / bsize)):
         coords = render_coords[i*bsize:(i+1)*bsize, :]
         with torch.no_grad():
-            out = model(coords*2)
+            out = model(coords)
 
         if not isinstance(out, list):
             out = [out, ]
