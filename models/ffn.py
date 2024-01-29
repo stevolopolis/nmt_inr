@@ -27,11 +27,11 @@ class FFN(nn.Module):
             mlp_configs=ffn_configs
         )
 
-        self.activation = nn.Sigmoid()
+        # self.activation = nn.Sigmoid()
 
     def forward(self, x, label=None):
         x = self.encoding(x)
         x = self.net(x)
-        x = self.activation(x)
+        # x = self.activation(x)
         return x
     
