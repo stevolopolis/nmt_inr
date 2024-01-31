@@ -220,7 +220,7 @@ class MeshSDF(Dataset):
         self.coord_mode = input_output_configs.coord_mode
         self.data_range = input_output_configs.data_range
 
-        # self.num_samples = self.config.num_samples
+        self.num_samples = self.config.num_samples
         self.pointcloud_path = self.config.xyz_file
         self.coarse_scale = self.config.coarse_scale
         self.fine_scale = self.config.fine_scale
@@ -281,6 +281,7 @@ class MeshSDF(Dataset):
             pointcloud = np.genfromtxt(pointcloud_path)
             np.save(pointcloud_path.replace('.xyz', '.npy'), pointcloud)
         self.pointcloud = pointcloud
+        print("No. of points: ", pointcloud.shape[0])
         
         # cache to speed up loading
         self.v = pointcloud[:, :3]
@@ -302,8 +303,8 @@ class MeshSDF(Dataset):
         return coords
 
     def sample_surface(self):
-        # idx = np.random.randint(0, self.v.shape[0], self.num_samples)
-        points = self.v
+        idx = np.random.randint(0, self.v.shape[0], self.num_samples)
+        points = self.v[idx]
         points[::2] += np.random.laplace(scale=self.coarse_scale, size=(points.shape[0] - points.shape[0]//2, points.shape[-1]))
         points[1::2] += np.random.laplace(scale=self.fine_scale, size=(points.shape[0]//2, points.shape[-1]))
 

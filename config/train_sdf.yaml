@@ -1,10 +1,9 @@
 TRAIN_CONFIGS:
-  out_dir: siren_mt
+  out_dir: siren_baseline_lucy
   iterations: 10000
   save_interval: 1000
   mt_save_interval: 1000
-  batch_size: 200000
-  device: cuda:1
+  device: cuda:0
   seed: 42
   sampling_path: sampling_history.pkl
   loss_path: loss_history.pkl
@@ -14,7 +13,7 @@ EXP_CONFIGS:
   mt_ratio: 0.2
   optimizer_type: adam
   lr_scheduler_type: cosine
-  strategy_type: incremental
+  strategy_type: void
 
 NETWORK_CONFIGS:
   lr: 1e-4
@@ -24,17 +23,18 @@ NETWORK_CONFIGS:
 
 DATASET_CONFIGS:
   data_type: sdf
-  xyz_file: data/stanford3d/gt_dragon.xyz
+  xyz_file: data/stanford3d/gt_lucy.xyz
+  num_samples: 50000
   # default settings from BACON
   coarse_scale: 1.0e-1
   fine_scale: 1.0e-3
   render_resolution: 512
 
 WANDB_CONFIGS:
-  use_wandb: 1
+  use_wandb: 0
   wandb_project: sdf
   wandb_entity: hku_inr
-  group: dragon
+  group: lucy
 
 defaults:
   - model_config: siren
