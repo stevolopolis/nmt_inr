@@ -21,7 +21,7 @@ def dense(step, max_steps):
     return True, 1
 
 
-def incremental(step, max_steps, min_interval=1, max_interval=100, n_increments=10):
+def incremental(step, max_steps, min_interval=1, max_interval=50, n_increments=10):
     step_size = max_steps // n_increments
     increment_size = int((max_interval - min_interval + 1) // n_increments * (step // step_size))
     

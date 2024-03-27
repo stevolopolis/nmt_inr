@@ -221,6 +221,10 @@ def main(configs):
     configs.model_config.INPUT_OUTPUT.coord_mode = configs.NETWORK_CONFIGS.coord_mode
     if configs.model_config.name == "FFN":
         configs.model_config.NET.rff_std = configs.NETWORK_CONFIGS.rff_std
+    if hasattr(configs.NETWORK_CONFIGS, "num_layers"):
+        configs.model_config.NET.num_layers = configs.NETWORK_CONFIGS.num_layers
+    if hasattr(configs.NETWORK_CONFIGS, "dim_hidden"):
+        configs.model_config.NET.dim_hidden = configs.NETWORK_CONFIGS.dim_hidden
 
     # model and dataloader
     dataset = get_dataset(configs.DATASET_CONFIGS, configs.model_config.INPUT_OUTPUT)
