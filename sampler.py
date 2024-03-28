@@ -3,7 +3,7 @@ import torch
 import pickle
 
 
-def mt_sampler(data, y, preds, size):
+def mt_sampler(data, y, preds, size, top_k=True):
     # Given size is ratio of training data
     if math.isclose(size, 1.0):
         return data, y, None
@@ -15,7 +15,10 @@ def mt_sampler(data, y, preds, size):
 
     # mt sampling (returns indices)
     dif = torch.sum(torch.abs(y-preds), 1)
-    _, idx = torch.topk(dif, n)
+    if top_k:
+        _, idx = torch.topk(dif, n)
+    else:
+        idx = torch.randperm(len(data))[:n]
 
     # get sampled data
     sampled_data = data[idx]
