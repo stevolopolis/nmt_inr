@@ -104,17 +104,18 @@ def train(configs, model, dataset, device='cuda'):
         # mt sampling
         mt_ratio = mt_scheduler(step, train_configs.iterations, float(exp_configs.mt_ratio))
         mt, mt_intervals = strategy(step, train_configs.iterations)
+        tinted_labels = None
         if mt:
             with torch.no_grad():
                 full_preds = model(coords, None)
-                sampled_coords, sampled_labels, idx, dif = mt_sampler(coords, labels, full_preds, mt_ratio)
-                tinted_labels = tint_data_with_samples(labels, idx, model_configs)
-                if step % train_configs.mt_save_interval == 0:
-                    save_samples(sampling_history, step, train_configs.iterations, sampled_coords, train_configs.sampling_path)
-                    save_losses(loss_history, step, train_configs.iterations, dif, train_configs.loss_path)
+                sampled_coords, sampled_labels, idx, dif = mt_sampler(coords, labels, full_preds, mt_ratio, top_k=exp_configs.top_k)
+                if not train_configs.no_io:
+                    tinted_labels = tint_data_with_samples(labels, idx, model_configs)
+                    if step % train_configs.mt_save_interval == 0:
+                        save_samples(sampling_history, step, train_configs.iterations, sampled_coords, train_configs.sampling_path)
+                        save_losses(loss_history, step, train_configs.iterations, dif, train_configs.loss_path)
         elif not mt and mt_intervals is None:
             sampled_coords, sampled_labels = coords, labels
-            tinted_labels = None
 
         sampled_preds = model(sampled_coords, None)
         if not mt and mt_intervals is None:
@@ -129,16 +130,19 @@ def train(configs, model, dataset, device='cuda'):
         opt.step()
         scheduler.step()
 
-        # process reconstructed image for evaluation
-        preds = prep_image_for_eval(full_preds, model_configs, H, W, C)
+        psnr_score = 0
+        ssim_score = 0
+        if not train_configs.no_io:
+            # process reconstructed image for evaluation
+            preds = prep_image_for_eval(full_preds, model_configs, H, W, C)
 
-        # evaluation
-        psnr_score = psnr_func(preds, ori_img, data_range=1)
-        ssim_score = ssim_func(preds, ori_img, channel_axis=-1, data_range=1)
+            # evaluation
+            psnr_score = psnr_func(preds, ori_img, data_range=1)
+            ssim_score = ssim_func(preds, ori_img, channel_axis=-1, data_range=1)
 
-        # (optional) squeeze image if it is GRAYSCALE
-        if preds.shape[-1] == 1:
-            preds = preds.squeeze(-1)
+            # (optional) squeeze image if it is GRAYSCALE
+            if preds.shape[-1] == 1:
+                preds = preds.squeeze(-1)
 
         # W&B logging
         if configs.WANDB_CONFIGS.use_wandb:
@@ -151,11 +155,11 @@ def train(configs, model, dataset, device='cuda'):
                         "mt_interval": mt_intervals
                         }
             # Save ground truth image (only at 1st iteration)
-            if step == 0:
+            if step == 0 and not train_configs.no_io:
                 save_image_to_wandb(log_dict, ori_img, "GT", dataset_configs, H, W)
                 
             # Save reconstructed image (and visualize sampled points)
-            if step%train_configs.save_interval==0:
+            if step%train_configs.save_interval==0 and not train_configs.no_io:
                 save_image_to_wandb(log_dict, preds, "Reconstruction", dataset_configs, H, W)
                 if tinted_labels is not None:
                     tinted_img = prep_image_for_eval(tinted_labels, model_configs, H, W, C)
@@ -171,7 +175,8 @@ def train(configs, model, dataset, device='cuda'):
         if psnr_score > best_psnr:
             best_psnr, best_ssim = psnr_score, ssim_score
             best_pred = preds
-            torch.save(model.state_dict(), os.path.join('outputs', out_dir, 'model.pth'))
+            if not train_configs.no_io:
+                torch.save(model.state_dict(), os.path.join('outputs', out_dir, 'model.pth'))
 
         # udpate progress bar
         process_bar.set_description(f"psnr: {psnr_score:.2f}, ssim: {ssim_score*100:.2f}, loss: {loss.item():.4f}")
@@ -181,14 +186,22 @@ def train(configs, model, dataset, device='cuda'):
     print(f"Best psnr: {best_psnr:.4f}, ssim: {best_ssim*100:.4f}")
     # W&B logging of final step
     if configs.WANDB_CONFIGS.use_wandb:
-        best_pred = best_pred.squeeze(-1) if dataset_configs.color_mode == 'L' else best_pred
-        wandb.log(
-                {
-                "best_psnr": best_psnr,
-                "best_ssim": best_ssim,
-                "best_pred": wandb.Image(Image.fromarray((best_pred*255).astype(np.uint8), mode=dataset_configs.color_mode)),
-                }, 
-            step=step)
+        if not train_configs.no_io:
+            best_pred = best_pred.squeeze(-1) if dataset_configs.color_mode == 'L' else best_pred
+            wandb.log(
+                    {
+                    "best_psnr": best_psnr,
+                    "best_ssim": best_ssim,
+                    "best_pred": wandb.Image(Image.fromarray((best_pred*255).astype(np.uint8), mode=dataset_configs.color_mode)),
+                    }, 
+                step=step)
+        else:
+            wandb.log(
+                    {
+                    "best_psnr": best_psnr,
+                    "best_ssim": best_ssim
+                    } 
+                step=step)
         wandb.finish()
     log.info(f"Best psnr: {best_psnr:.4f}, ssim: {best_ssim*100:.4f}")
     

@@ -8,6 +8,7 @@ TRAIN_CONFIGS:
   seed: 42
   sampling_path: sampling_history.pkl
   loss_path: loss_history.pkl
+  no_io: 0
 
 EXP_CONFIGS:
   scheduler_type: constant
@@ -15,6 +16,7 @@ EXP_CONFIGS:
   optimizer_type: adam
   lr_scheduler_type: constant
   strategy_type: dense
+  top_k: 1
 
 NETWORK_CONFIGS:
   lr: 1e-3
