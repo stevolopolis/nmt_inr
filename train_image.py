@@ -200,7 +200,7 @@ def train(configs, model, dataset, device='cuda'):
                     {
                     "best_psnr": best_psnr,
                     "best_ssim": best_ssim
-                    } 
+                    },
                 step=step)
         wandb.finish()
     log.info(f"Best psnr: {best_psnr:.4f}, ssim: {best_ssim*100:.4f}")
@@ -240,6 +240,7 @@ def main(configs):
         configs.model_config.NET.dim_hidden = configs.NETWORK_CONFIGS.dim_hidden
 
     # model and dataloader
+    print(configs.DATASET_CONFIGS)
     dataset = get_dataset(configs.DATASET_CONFIGS, configs.model_config.INPUT_OUTPUT)
     model = get_model(configs.model_config, dataset)
     print(f"Start experiment: {configs.TRAIN_CONFIGS.out_dir}")

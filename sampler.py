@@ -6,7 +6,7 @@ import pickle
 def mt_sampler(data, y, preds, size, top_k=True):
     # Given size is ratio of training data
     if math.isclose(size, 1.0):
-        return data, y, None
+        return data, y, None, None
     elif type(size) == float:
         n = int(size * len(data))
     # Given size is actual number of training data

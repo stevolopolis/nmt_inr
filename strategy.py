@@ -7,6 +7,8 @@ def strategy_factory(strategy_type):
         return exponential
     elif strategy_type == "dense":
         return dense
+    elif strategy_type == "dense2":
+        return dense2
     elif strategy_type == "void":
         return void
     else:
@@ -19,6 +21,13 @@ def void(step, max_steps):
 
 def dense(step, max_steps):
     return True, 1
+
+
+def dense2(step, max_steps, interval=2):
+    if step % interval == 0:
+        return True, interval
+    else:
+        return False, interval
 
 
 def incremental(step, max_steps, min_interval=1, max_interval=50, n_increments=5, startup_ratio=.25):
