@@ -67,7 +67,7 @@ def train(configs, model, dataset, device='cuda'):
     if exp_configs.optimizer_type == "adam":
         opt = torch.optim.Adam(model.parameters(), lr=network_configs.lr)
     elif exp_configs.optimizer_type == "sgd":
-        opt = torch.optim.SGD(model.parameters(), lr=network_configs.lr)
+        opt = torch.optim.SGD(model.parameters(), lr=network_configs.lr, momentum=0.9)
     if exp_configs.lr_scheduler_type == "constant":
         scheduler = torch.optim.lr_scheduler.ConstantLR(opt, factor=1.0, total_iters=0)
     elif exp_configs.lr_scheduler_type == "cosine":
@@ -93,7 +93,7 @@ def train(configs, model, dataset, device='cuda'):
     # process training labels into ground truth image (for later use)
     ori_img = labels.view(H, W, C).cpu().detach().numpy()
     ori_img = (ori_img + 1) / 2 if model_configs.INPUT_OUTPUT.data_range == 1 else ori_img
-
+    
     # sampling log
     sampling_history = dict()
     loss_history = dict()
@@ -107,16 +107,16 @@ def train(configs, model, dataset, device='cuda'):
         if mt:
             with torch.no_grad():
                 full_preds = model(coords, None)
-                sampled_coords, sampled_labels, idx, dif = mt_sampler(coords, labels, full_preds, mt_ratio)
+                sampled_coords, sampled_labels, idx, dif = mt_sampler(coords, labels, full_preds, mt_ratio, top_k=exp_configs.top_k)
                 tinted_labels = tint_data_with_samples(labels, idx, model_configs)
                 if step % train_configs.mt_save_interval == 0:
-                    save_samples(sampling_history, step, train_configs.iterations, sampled_coords, train_configs.sampling_path)
-                    save_losses(loss_history, step, train_configs.iterations, dif, train_configs.loss_path)
+                    save_samples(sampling_history, step, train_configs.iterations, sampled_coords, f"{train_configs.sampling_path}")
+                    save_losses(loss_history, step, train_configs.iterations, dif, f"{train_configs.loss_path}")
         elif not mt and mt_intervals is None:
             sampled_coords, sampled_labels = coords, labels
             tinted_labels = None
 
-        sampled_preds = model(sampled_coords, None)
+        sampled_preds = model(sampled_coords, None) 
         if not mt and mt_intervals is None:
             full_preds = sampled_preds
         
@@ -181,7 +181,7 @@ def train(configs, model, dataset, device='cuda'):
     print(f"Best psnr: {best_psnr:.4f}, ssim: {best_ssim*100:.4f}")
     # W&B logging of final step
     if configs.WANDB_CONFIGS.use_wandb:
-        best_pred = best_pred.squeeze(-1) if dataset_configs.color_mode == 'L' else best_pred
+        best_pred = best_pred.squeeze(-1) if best_pred.shape[-1] == 1 else best_pred
         wandb.log(
                 {
                 "best_psnr": best_psnr,
@@ -202,9 +202,9 @@ def train(configs, model, dataset, device='cuda'):
 def main(configs):
     configs = EasyDict(configs)
 
-    # Save run name with current time
-    time_str = str(datetime.datetime.now().time()).replace(":", "").replace(".", "")
-    configs.TRAIN_CONFIGS.out_dir += "_" + time_str
+    # Save run name with configs
+    img_name = configs.DATASET_CONFIGS.file_path.split("/")[-1].split(".")[0]
+    configs.TRAIN_CONFIGS.out_dir = f"{configs.EXP_CONFIGS.optimizer_type}_{configs.model_config.name}_mt{configs.EXP_CONFIGS.mt_ratio}_{configs.EXP_CONFIGS.strategy_type}_{configs.EXP_CONFIGS.scheduler_type}_{configs.EXP_CONFIGS.lr_scheduler_type}_topk{configs.EXP_CONFIGS.top_k}_{img_name}"
 
     # Seed python, numpy, pytorch
     seed_everything(configs.TRAIN_CONFIGS.seed)
