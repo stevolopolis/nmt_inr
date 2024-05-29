@@ -1,3 +1,4 @@
+
 __pycache__
 
 outputs
@@ -7,6 +8,10 @@ data
 vis
 dump
 dataset
+scripts
+config
+train_image_raw.py
+train_megapixel_raw.py
 
 .vscode
 
