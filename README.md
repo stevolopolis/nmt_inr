@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/stevolopolis/nmt_inr/blob/main/asset/int_logo.svg" width="10%">
+  <img src="https://github.com/stevolopolis/nmt_inr/blob/main/asset/int_logo.png" width="10%">
 </div>
 
 
