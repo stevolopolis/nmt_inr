@@ -6,6 +6,7 @@ logs
 data
 vis
 dump
+dataset
 
 .vscode
 
@@ -15,3 +16,4 @@ dump
 *.out
 *.txt
 *csv
+*.zip

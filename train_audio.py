@@ -11,11 +11,11 @@ import wandb
 from omegaconf import OmegaConf
 from easydict import EasyDict
 from tqdm import tqdm
-from PIL import Image
-from skimage.metrics import structural_similarity as ssim_func
 from skimage.metrics import peak_signal_noise_ratio as psnr_func
 
-from sampler import mt_sampler
+from scheduler import *
+from sampler import mt_sampler, save_samples, save_losses
+from strategy import strategy_factory
 from utils import seed_everything, get_dataset, get_model, prep_audio_for_eval
 
 
@@ -38,12 +38,23 @@ def save_src_for_reproduce(configs, out_dir):
 def train(configs, model, dataset, device='cuda'):
     train_configs = configs.TRAIN_CONFIGS
     dataset_configs = configs.DATASET_CONFIGS
+    exp_configs = configs.EXP_CONFIGS
+    network_configs = configs.NETWORK_CONFIGS
     model_configs = configs.model_config
     out_dir = train_configs.out_dir
 
     # optimizer and scheduler
-    opt = torch.optim.Adam(model.parameters(), lr=train_configs.lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, train_configs.iterations, eta_min=1e-6)
+    if exp_configs.optimizer_type == "adam":
+        opt = torch.optim.Adam(model.parameters(), lr=network_configs.lr)
+    elif exp_configs.optimizer_type == "sgd":
+        opt = torch.optim.SGD(model.parameters(), lr=network_configs.lr)
+    if exp_configs.lr_scheduler_type == "constant":
+        scheduler = torch.optim.lr_scheduler.ConstantLR(opt, factor=1.0, total_iters=0)
+    elif exp_configs.lr_scheduler_type == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, train_configs.iterations, eta_min=1e-6)
+
+    mt_scheduler = mt_scheduler_factory(exp_configs.scheduler_type)
+    strategy = strategy_factory(exp_configs.strategy_type)
 
     # prep model for training
     model.train()
@@ -61,14 +72,29 @@ def train(configs, model, dataset, device='cuda'):
     ori_audio = labels.flatten().cpu().detach().numpy()
     ori_audio = (ori_audio*2) - 1 if model_configs.INPUT_OUTPUT.data_range == 0 else ori_audio # [-1,1]
 
+    # sampling log
+    sampling_history = dict()
+    loss_history = dict()
+    psnr_milestone = False
+
     # train
     for step in process_bar:
         # mt sampling
-        with torch.no_grad():
-            preds = model(coords, None)
-            sampled_coords, sampled_labels, idx = mt_sampler(coords, labels, preds, train_configs.mt_ratio)
+        mt_ratio = mt_scheduler(step, train_configs.iterations, float(exp_configs.mt_ratio))
+        mt, mt_intervals = strategy(step, train_configs.iterations)
+        if mt:
+            with torch.no_grad():
+                full_preds = model(coords, None)
+                sampled_coords, sampled_labels, idx, dif = mt_sampler(coords, labels, full_preds, mt_ratio)
+                if step % train_configs.mt_save_interval == 0:
+                    save_samples(sampling_history, step, train_configs.iterations, sampled_coords, train_configs.sampling_path)
+                    save_losses(loss_history, step, train_configs.iterations, dif, train_configs.loss_path)
+        elif not mt and mt_intervals is None:
+            sampled_coords, sampled_labels = coords, labels
 
         sampled_preds = model(sampled_coords, None)
+        if not mt and mt_intervals is None:
+            full_preds = sampled_preds
         # MSE loss
         loss = ((sampled_preds - sampled_labels) ** 2).mean()
 
@@ -79,18 +105,19 @@ def train(configs, model, dataset, device='cuda'):
         scheduler.step()
 
         # process reconstructed audio for evaluation
-        preds = prep_audio_for_eval(preds, model_configs, T, C)
+        preds = prep_audio_for_eval(full_preds, model_configs, T, C)
 
         # evaluation
         psnr_score = psnr_func(preds, ori_audio, data_range=2)
-
 
         # W&B logging
         if configs.WANDB_CONFIGS.use_wandb:
             log_dict = {
                         "loss": loss.item(),
                         "psnr": psnr_score,
-                        "lr": scheduler.get_last_lr()[0]
+                        "lr": scheduler.get_last_lr()[0],
+                        "mt": mt_ratio,
+                        "mt_interval": mt_intervals
                         }
             # Save ground truth image (only at 1st iteration)
             if step == 0:
@@ -99,6 +126,10 @@ def train(configs, model, dataset, device='cuda'):
             # Save reconstructed audio
             if step%train_configs.save_interval==0:
                 log_dict["Reconstruction"] =  wandb.Audio(preds, sample_rate=16000)
+
+            if not psnr_milestone and psnr_score > 40:
+                psnr_milestone = True
+                wandb.log({"PSNR Threshold": step}, step=step)
 
             wandb.log(log_dict, step=step)
 
@@ -136,13 +167,19 @@ def main(configs):
     configs = EasyDict(configs)
 
     # Save run name with current time
-    time_str = str(datetime.datetime.now().time()).replace(":", "").replace(".", "")
-    configs.TRAIN_CONFIGS.out_dir += "_" + time_str
+    # time_str = str(datetime.datetime.now().time()).replace(":", "").replace(".", "")
+    # configs.TRAIN_CONFIGS.out_dir += "_" + time_str
 
     # Seed python, numpy, pytorch
     seed_everything(configs.TRAIN_CONFIGS.seed)
     # Saving config and settings for reproduction
     save_src_for_reproduce(configs, configs.TRAIN_CONFIGS.out_dir)
+
+    # model configs
+    configs.model_config.INPUT_OUTPUT.data_range = configs.NETWORK_CONFIGS.data_range
+    configs.model_config.INPUT_OUTPUT.coord_mode = configs.NETWORK_CONFIGS.coord_mode
+    if configs.model_config.name == "FFN":
+        configs.model_config.NET.rff_std = configs.NETWORK_CONFIGS.rff_std
 
     # model and dataloader
     dataset = get_dataset(configs.DATASET_CONFIGS, configs.model_config.INPUT_OUTPUT)

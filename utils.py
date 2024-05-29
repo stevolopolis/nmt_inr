@@ -44,12 +44,12 @@ def save_image_to_wandb(wandb_dict, image, label, dataset_configs, h, w):
 
 
 def get_dataset(dataset_configs, input_output_configs):
-    if dataset_configs.data_type == "video":
-        dataset = VideoFileDatasetAlt(dataset_configs, input_output_configs)
-    elif dataset_configs.data_type == "image":
+    if dataset_configs.data_type == "image":
         dataset = ImageFileDataset(dataset_configs, input_output_configs)
     elif dataset_configs.data_type == "audio":
         dataset = AudioFileDataset(dataset_configs, input_output_configs) 
+    elif dataset_configs.data_type == "sdf":
+        dataset = MeshSDF(dataset_configs, input_output_configs)
     else:
          raise NotImplementedError(f"Dataset {dataset_configs.data_type} not implemented")
     return dataset

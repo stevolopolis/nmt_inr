@@ -35,18 +35,14 @@ class RandomFourierFeatures(nn.Module):
 
         self.in_features = in_features
         self.num_frequencies = num_frequencies
-        gauss_mean = torch.zeros((in_features, num_frequencies))
-        gauss_std = torch.ones((in_features, num_frequencies)) * sigma
-        self.B = torch.normal(mean=gauss_mean, std=gauss_std)
-        self.B = torch.cat((torch.ones((in_features, 1)), self.B), axis=1)
+        self.B = torch.randn(in_features, num_frequencies) * sigma
 
-        self.out_dim = in_features + in_features * self.num_frequencies
+        self.out_dim = 2 * self.num_frequencies
 
     def forward(self, coords):
         self.B = self.B.to(coords.device)
         coords = torch.matmul(2 * torch.pi * coords, self.B)
         x = torch.cat((torch.sin(coords), torch.cos(coords)), -1)
-
         return x
 
 

@@ -1,40 +1,40 @@
 TRAIN_CONFIGS:
-  out_dir: siren_sampling
-  lr: 1e-3
-  iterations: 5000
-  save_interval: 100
-  mt_save_interval: 100
-  device: cuda:2
+  out_dir: siren_baseline_lucy
+  iterations: 10000
+  save_interval: 1000
+  mt_save_interval: 1000
+  device: cuda:0
   seed: 42
   sampling_path: sampling_history.pkl
   loss_path: loss_history.pkl
-  no_io: 0
 
 EXP_CONFIGS:
-  scheduler_type: constant
+  scheduler_type: step
   mt_ratio: 0.2
   optimizer_type: adam
-  lr_scheduler_type: constant
-  strategy_type: dense
-  top_k: 1
+  lr_scheduler_type: cosine
+  strategy_type: void
 
 NETWORK_CONFIGS:
-  lr: 1e-3
+  lr: 1e-4
   data_range: 0
   coord_mode: 2
   rff_std: 10
 
 DATASET_CONFIGS:
-  data_type: image
-  file_path: ../../datasets/kodak/kodim05.png
-  color_mode: RGB              # RGB or L (grayscale)
-  img_size: null
+  data_type: sdf
+  xyz_file: data/stanford3d/gt_lucy.xyz
+  num_samples: 50000
+  # default settings from BACON
+  coarse_scale: 1.0e-1
+  fine_scale: 1.0e-3
+  render_resolution: 512
 
 WANDB_CONFIGS:
-  use_wandb: 1
-  wandb_project: mt_exploration
+  use_wandb: 0
+  wandb_project: sdf
   wandb_entity: hku_inr
-  group: dynamics
+  group: lucy
 
 defaults:
   - model_config: siren
