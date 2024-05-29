@@ -1,15 +1,17 @@
+<div align="center">
+  <img src="https://github.com/stevolopolis/nmt_inr/blob/main/asset/int_logo.svg" width="10%">
+</div>
+
+
+
 # NMT INR
 
-## Updates
-10:01am EST Jan21
-- `Analysis` - Added code to visualize MT progression. RMB to add two subdirectories to run the `analysis/mt_dyanmics.py`:
-    - `vis/dynamics`
-    - `vis/iou`
+[Chen Zhang](https://chen2hang.github.io/), [S.T.S Luo](https://www.cs.toronto.edu/~stevenlts/index.html), [Jason Chun Lok Li](https://hk.linkedin.com/in/jason-chun-lok-li-0590b3166), [Yik-Chung Wu](https://www.eee.hku.hk/~ycwu/), [Ngai Wong](https://www.eee.hku.hk/~nwong/)
 
-6:23pm EST Jan12 
-- `Experiment` - General exploration about MT dyanmics and MT wallclock time performance
-- `Script` - `scripts/mt_ratio.sh` (x2: different sets of kodak images)
-- `Log` - https://wandb.ai/hku_inr/mt_exploration/groups/general
+[[`Paper`](https://arxiv.org/pdf/2405.10531)]
+
+PyTorch implementation the INT algorithm for INRs. For details, see the paper **[Nonparametric Teaching of Implicit Neural Representations](https://arxiv.org/pdf/2405.10531)**.
+
 
 ## Code structure
 - `train_image.py` - Main training code
