@@ -147,7 +147,7 @@ def mt_vid(sample_history, data_path, output_path, output_dir, H, W, fps=10):
 def recon_vid(wandb_log_path, output_path, output_dir, H, W, fps=10):
     if os.path.basename(output_dir) not in os.listdir(os.path.dirname(output_dir)):
         os.mkdir(output_dir)
-    iterator = [0] + [i for i in range(49, 4999, 50)]
+    iterator = [0] + [i for i in range(99, 4999, 100)]
     for step in tqdm(iterator):
         # check for filename regex
         img_file = glob.glob(f"{wandb_log_path}/Reconstruction_{step}*.png")
@@ -217,7 +217,8 @@ if __name__ == '__main__':
     model = "SIREN"
     models = ['SIREN']  # ['mlp', 'siren', 'ffn']
     data_idx = '07'
-    data_idxs = ["05", "07", "14"] # ['07', '14', '15', '17'] # , '05', '18', '20', '21
+    data_idxs = [str(i).zfill(2) for i in range(1, 25)]
+    # data_idxs = ['09', '17']
     optimizer = "adam"
     scheduler = 'step'
     lr_scheduler = 'cosine'
@@ -227,7 +228,9 @@ if __name__ == '__main__':
     # for dense_constant_constant
     # wandb_dict = {"05": "run-20240526_125656-ly5ny79v", "07": "run-20240526_125802-o706ay8y", "17": "run-20240526_125824-v288uofp"}
     # for incremental_step_constant
-    wandb_dict = {"05": "run-20240526_235656", "07": "run-20240526_235648", "14": "run-20240526_235640"}
+    wandb_ids = ["g4oy5377", "a3k375zo", "h6jyvr7t", "javj3df6", "00ji6ryf", "g47hjz0z", "2gtsg99s", "t60lpd5s", "2vjynt9c", "d0dtp3to", "2tkjia9d", "at7pce24", "mr71cqrq", "83clibws", "vr14o98p", "vpygdfh6", "p0p0yhr4", "dryctp44", "ot6nuli9", "8895qw7f", "p5e83phu", "hvj1gxd8", "17tgrion", "ye3hwotr"]
+    wandb_dict = {str(i+1).zfill(2): id for i, id in enumerate(wandb_ids)}
+
     # for incremental_step_cosine
 
     for model in models:
@@ -249,7 +252,7 @@ if __name__ == '__main__':
                 
                 loss_vid_path = "vis/dynamics/loss/%s_loss_dynamics.mp4" % model_name
                 iou_curve_path = "vis/iou/%s_iou_curve.png" % model_name
-                if data_idx == '17':
+                if data_idx in ['04', '09', '10', '17', '18', '19']:
                     H, W = 768, 512
                 else:
                     H, W = 512, 768
@@ -265,7 +268,10 @@ if __name__ == '__main__':
                 print("Superimposed history video completed.")
 
                 print("Converting recon images to video...")
-                wandb_dir_name = glob.glob(f"wandb/{wandb_dict[data_idx]}*")[0]
+                if len(glob.glob(f"wandb/*{wandb_dict[data_idx]}")) != 1:
+                    raise ValueError("Multiple or no wandb directory found.")
+                wandb_dir_name = glob.glob(f"wandb/*{wandb_dict[data_idx]}")[0]
+                print(data_idx, wandb_dir_name)
                 wandb_log_path = f"{wandb_dir_name}/files/media/images"
                 print(wandb_log_path)
                 recon_vid(wandb_log_path, recon_vid_path, recon_vid_dir, H, W, fps=2)
