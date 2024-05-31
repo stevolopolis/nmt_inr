@@ -15,9 +15,7 @@ from PIL import Image
 from skimage.metrics import structural_similarity as ssim_func
 from skimage.metrics import peak_signal_noise_ratio as psnr_func
 
-from scheduler import *
-from sampler import mt_sampler, save_samples, save_losses
-from strategy import strategy_factory, incremental, exponential
+from nmt import NMT
 from utils import seed_everything, get_dataset, get_model, prep_image_for_eval, save_image_to_wandb
 
 
@@ -73,9 +71,6 @@ def train(configs, model, dataset, device='cuda'):
     elif exp_configs.lr_scheduler_type == "cosine":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, train_configs.iterations, eta_min=1e-6)
 
-    mt_scheduler = mt_scheduler_factory(exp_configs.scheduler_type)
-    strategy = strategy_factory(exp_configs.strategy_type)
-
     # prep model for training
     model.train()
     model = model.to(device)
@@ -93,33 +88,30 @@ def train(configs, model, dataset, device='cuda'):
     # process training labels into ground truth image (for later use)
     ori_img = labels.view(H, W, C).cpu().detach().numpy()
     ori_img = (ori_img + 1) / 2 if model_configs.INPUT_OUTPUT.data_range == 1 else ori_img
+
+    # nmt setup
+    nmt = NMT(model,
+              train_configs.iterations,
+              (H, W, C),
+              exp_configs.scheduler_type,
+              exp_configs.strategy_type,
+              exp_configs.mt_ratio,
+              exp_configs.top_k,
+              save_samples_path=train_configs.sampling_path,
+              save_losses_path=train_configs.loss_path,
+              save_name=None,
+              save_interval=train_configs.save_interval)
     
     # sampling log
-    sampling_history = dict()
-    loss_history = dict()
     psnr_milestone = False
 
     # train
     for step in process_bar:
         # mt sampling
-        mt_ratio = mt_scheduler(step, train_configs.iterations, float(exp_configs.mt_ratio))
-        mt, mt_intervals = strategy(step, train_configs.iterations)
-        tinted_labels = None
-        if mt:
-            with torch.no_grad():
-                full_preds = model(coords, None)
-                sampled_coords, sampled_labels, idx, dif = mt_sampler(coords, labels, full_preds, mt_ratio, top_k=exp_configs.top_k)
-                if not train_configs.no_io:
-                    tinted_labels = tint_data_with_samples(labels, idx, model_configs)
-                    if step % train_configs.mt_save_interval == 0:
-                        save_samples(sampling_history, step, train_configs.iterations, sampled_coords, train_configs.sampling_path)
-                        save_losses(loss_history, step, train_configs.iterations, dif, train_configs.loss_path)
-        elif not mt and mt_intervals is None:
-            sampled_coords, sampled_labels = coords, labels
+        sampled_coords, sampled_labels, full_preds = nmt.sample(step, coords, labels)
 
+        # subset inference for backprop
         sampled_preds = model(sampled_coords, None) 
-        if not mt and mt_intervals is None:
-            full_preds = sampled_preds
         
         # MSE loss
         loss = ((sampled_preds - sampled_labels) ** 2).mean()
@@ -151,8 +143,8 @@ def train(configs, model, dataset, device='cuda'):
                         "psnr": psnr_score,
                         "ssim": ssim_score,
                         "lr": scheduler.get_last_lr()[0],
-                        "mt": mt_ratio,
-                        "mt_interval": mt_intervals
+                        "mt": nmt.get_ratio(),
+                        "mt_interval": nmt.get_interval()
                         }
             # Save ground truth image (only at 1st iteration)
             if step == 0 and not train_configs.no_io:
@@ -161,9 +153,10 @@ def train(configs, model, dataset, device='cuda'):
             # Save reconstructed image (and visualize sampled points)
             if step%train_configs.save_interval==0 and not train_configs.no_io:
                 save_image_to_wandb(log_dict, preds, "Reconstruction", dataset_configs, H, W)
-                if tinted_labels is not None:
-                    tinted_img = prep_image_for_eval(tinted_labels, model_configs, H, W, C)
-                    save_image_to_wandb(log_dict, tinted_img, "Sampled points", dataset_configs, H, W)
+                # load saved tinted image
+                tinted_img = np.asarray(Image.open(nmt.get_saved_tint_path()))
+                tinted_img = tinted_img / 255
+                save_image_to_wandb(log_dict, tinted_img, "Sampled points", dataset_configs, H, W)
 
             if not psnr_milestone and psnr_score > 30:
                 psnr_milestone = True
@@ -214,10 +207,6 @@ def train(configs, model, dataset, device='cuda'):
 @hydra.main(version_base=None, config_path='config', config_name='train_image')
 def main(configs):
     configs = EasyDict(configs)
-
-    # Save run name with configs
-    img_name = configs.DATASET_CONFIGS.file_path.split("/")[-1].split(".")[0]
-    configs.TRAIN_CONFIGS.out_dir = f"{configs.EXP_CONFIGS.optimizer_type}_{configs.model_config.name}_mt{configs.EXP_CONFIGS.mt_ratio}_{configs.EXP_CONFIGS.strategy_type}_{configs.EXP_CONFIGS.scheduler_type}_{configs.EXP_CONFIGS.lr_scheduler_type}_topk{configs.EXP_CONFIGS.top_k}_{img_name}"
 
     # Seed python, numpy, pytorch
     seed_everything(configs.TRAIN_CONFIGS.seed)

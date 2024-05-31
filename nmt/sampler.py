@@ -31,11 +31,11 @@ def save_samples(sample_history, step, max_steps, samples, file_name):
     sample_history[str(step)] = samples.detach().cpu().numpy()
     with open(file_name, 'wb') as f:
         pickle.dump(sample_history, f)
-    #print("Sampling history saved at %s." % file_name)
+    print("Sampling history saved at %s." % file_name)
 
 
 def save_losses(loss_history, step, max_steps, losses, file_name):
     loss_history[str(step)] = losses.detach().cpu().numpy()
     with open(file_name, 'wb') as f:
         pickle.dump(loss_history, f)
-    #print("Loss history saved at %s." % file_name)
+    print("Loss history saved at %s." % file_name)

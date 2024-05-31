@@ -16,9 +16,9 @@ import wandb
 
 import datetime
 
-from scheduler import *
-from sampler import mt_sampler, save_samples, save_losses
-from strategy import strategy_factory, incremental, exponential
+from nmt.scheduler import *
+from nmt.sampler import mt_sampler, save_samples, save_losses
+from nmt.strategy import strategy_factory, incremental, exponential
 
 
 log = logging.getLogger(__name__)

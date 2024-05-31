@@ -7,6 +7,7 @@ TRAIN_CONFIGS:
   seed: 42
   sampling_path: sampling_history.pkl
   loss_path: loss_history.pkl
+  save_name: siren
 
 EXP_CONFIGS:
   scheduler_type: constant
