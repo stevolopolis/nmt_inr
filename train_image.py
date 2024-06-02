@@ -54,6 +54,7 @@ def tint_data_with_samples(data, sample_idx, model_configs):
 
 
 def train(configs, model, dataset, device='cuda'):
+    # load configs
     train_configs = configs.TRAIN_CONFIGS
     dataset_configs = configs.DATASET_CONFIGS
     exp_configs = configs.EXP_CONFIGS
@@ -122,6 +123,8 @@ def train(configs, model, dataset, device='cuda'):
         opt.step()
         scheduler.step()
 
+        # eval reconstruction (only if no_io is False)
+        # if no_io is True, we skip all eval and logging to get the raw training speed
         psnr_score = 0
         ssim_score = 0
         if not train_configs.no_io:
@@ -152,16 +155,20 @@ def train(configs, model, dataset, device='cuda'):
                 
             # Save reconstructed image (and visualize sampled points)
             if step%train_configs.save_interval==0 and not train_configs.no_io:
+                # save the reconstruction image
                 save_image_to_wandb(log_dict, preds, "Reconstruction", dataset_configs, H, W)
                 # load saved tinted image
                 tinted_img = np.asarray(Image.open(nmt.get_saved_tint_path()))
                 tinted_img = tinted_img / 255
+                # save the tinted image
                 save_image_to_wandb(log_dict, tinted_img, "Sampled points", dataset_configs, H, W)
 
+            # if PSNR > 30, log the step
             if not psnr_milestone and psnr_score > 30:
                 psnr_milestone = True
                 wandb.log({"PSNR Threshold": step}, step=step)
 
+            # log to wandb
             wandb.log(log_dict, step=step)
 
         # Save model weights if it has the best PSNR so far
@@ -179,6 +186,7 @@ def train(configs, model, dataset, device='cuda'):
     print(f"Best psnr: {best_psnr:.4f}, ssim: {best_ssim*100:.4f}")
     # W&B logging of final step
     if configs.WANDB_CONFIGS.use_wandb:
+        # if no_io is False, we log best-psnr, best-ssim, and the best prediction image
         if not train_configs.no_io:
             best_pred = best_pred.squeeze(-1) if dataset_configs.color_mode == 'L' else best_pred
             wandb.log(
@@ -188,6 +196,7 @@ def train(configs, model, dataset, device='cuda'):
                     "best_pred": wandb.Image(Image.fromarray((best_pred*255).astype(np.uint8), mode=dataset_configs.color_mode)),
                     }, 
                 step=step)
+        # if no_io is True, we only log the best-psnr and best-ssim
         else:
             wandb.log(
                     {
