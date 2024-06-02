@@ -24,13 +24,15 @@ def prep_audio_for_eval(audio, config, t, c):
     audio = audio.flatten().cpu().detach().numpy()
     return audio
 
-def prep_image_for_eval(image, config, h, w, c):
+def prep_image_for_eval(image, config, h, w, c, reshape=True):
     if config.INPUT_OUTPUT.data_range == 1:
-        image = image.clamp(-1, 1).view(h, w, c)       # clip to [-1, 1]
-        image = (image + 1) / 2                        # [-1, 1] -> [0, 1]
+        image = image.clamp(-1, 1)      # clip to [-1, 1]
+        image = (image + 1) / 2         # [-1, 1] -> [0, 1]
     else:
-        image = image.clamp(0, 1).view(h, w, c)       # clip to [0, 1]
+        image = image.clamp(0, 1)       # clip to [0, 1]
 
+    if reshape:
+        image = image.view(h, w, c)
     image = image.cpu().detach().numpy()
 
     return image
@@ -50,6 +52,8 @@ def get_dataset(dataset_configs, input_output_configs):
         dataset = AudioFileDataset(dataset_configs, input_output_configs) 
     elif dataset_configs.data_type == "sdf":
         dataset = MeshSDF(dataset_configs, input_output_configs)
+    elif dataset_configs.data_type == "megapixel":
+        dataset = BigImageFileDataset(dataset_configs, input_output_configs)
     else:
          raise NotImplementedError(f"Dataset {dataset_configs.data_type} not implemented")
     return dataset

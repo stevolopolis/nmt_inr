@@ -3,7 +3,7 @@ TRAIN_CONFIGS:
   iterations: 500
   save_interval: 10
   mt_save_interval: 10
-  device: cuda:2
+  device: cuda:0
   seed: 42
   sampling_path: sampling_history.pkl
   loss_path: loss_history.pkl
@@ -18,7 +18,7 @@ EXP_CONFIGS:
   top_k: 1
 
 NETWORK_CONFIGS:
-  lr: 1e-3
+  lr: 1e-4
   data_range: 0
   coord_mode: 2
   rff_std: 10
@@ -27,10 +27,10 @@ NETWORK_CONFIGS:
 
 DATASET_CONFIGS:
   data_type: megapixel
-  file_path: ../datasets/megapixels/pluto.png
+  file_path: ../datasets/megapixels/pluto_8192.png
   color_mode: RGB              # RGB or L (grayscale)
   img_size: [8192, 8192]
-  max_coords: 400000
+  max_coords: 262144
   pool_ratio: 1.0
 
 WANDB_CONFIGS:

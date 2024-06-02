@@ -16,10 +16,7 @@ import wandb
 
 import datetime
 
-from nmt.scheduler import *
-from nmt.sampler import mt_sampler, save_samples, save_losses
-from nmt.strategy import strategy_factory, incremental, exponential
-
+from nmt import NMT
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +51,7 @@ def tint_data_with_samples(data, sample_idx, model_configs):
 
 
 def train(configs, model, dataset, device='cuda'):
+    # load configs
     train_configs = configs.TRAIN_CONFIGS
     dataset_configs = configs.DATASET_CONFIGS
     exp_configs = configs.EXP_CONFIGS
@@ -71,121 +69,125 @@ def train(configs, model, dataset, device='cuda'):
     elif exp_configs.lr_scheduler_type == "cosine":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, train_configs.iterations, eta_min=1e-6)
 
-    mt_scheduler = mt_scheduler_factory(exp_configs.scheduler_type)
-    strategy = strategy_factory(exp_configs.strategy_type)
-
     # prepare training settings
     model.train()
-    #model = torch.nn.DataParallel(model, device_ids=[0, 1])
     model = model.to(device)
     process_bar = tqdm(range(train_configs.iterations))
     H, W, C = dataset.H, dataset.W, dataset.C
     best_psnr, best_ssim = 0, 0
     best_pred = None
+    
+    # nmt setup
+    nmt = NMT(model,
+              train_configs.iterations,
+              (H, W, C),
+              exp_configs.scheduler_type,
+              exp_configs.strategy_type,
+              exp_configs.mt_ratio,
+              exp_configs.top_k,
+              save_samples_path=None,
+              save_losses_path=None,
+              save_name=None,
+              save_interval=train_configs.save_interval)
 
+    # placeholders for the original image and reconstructed image
+    # we need these because we sample the megapixel in batches (not in a whole)
     ori_img = np.zeros(dataset.get_data_shape())
     ori_img_pred = np.zeros(dataset.get_data_shape())
 
-    sampling_history = dict()
-    loss_history = dict()
-    psnr_milestone = False
-
     # train
     for step in process_bar:
+        # run batch-wise mt sampling on entire data without updating model weights first
+        # then, re-inference and do backpropagation
+        sampled_coords_arr, sampled_labels_arr = [], []
+        full_preds_arr = []
         iter_dataset = iter(dataset)
-        # mt sampling
-        mt_ratio = mt_scheduler(step, train_configs.iterations, float(exp_configs.mt_ratio))
-        mt, mt_intervals = strategy(step, train_configs.iterations)
+        for _ in range(len(dataset)):
+            coords, labels = next(iter_dataset)
+            coords, labels = coords.to(device), labels.to(device)
 
-        if mt: 
-            sampled_coords_arr, sampled_labels_arr = [], []
-            full_preds_arr = []
-            for _ in range(len(dataset)):
-                coords, labels = next(iter_dataset)
-                coords, labels = coords.to(device), labels.to(device)
-            
-                with torch.no_grad():
-                    if exp_configs.top_k:
-                        full_preds = model(coords, None)
-                    else: 
-                        full_preds = None
-                    sampled_coords_iter, sampled_labels_iter, idx, dif = mt_sampler(coords, labels, full_preds, mt_ratio, top_k=exp_configs.top_k)
-                    #tinted_labels = tint_data_with_samples(labels, idx, model_configs)
-                    #if step % train_configs.mt_save_interval == 0:
-                    #    save_samples(sampling_history, step, train_configs.iterations, sampled_coords, train_configs.sampling_path)
-                    #    save_losses(loss_history, step, train_configs.iterations, dif, train_configs.loss_path)
+            # mt sampling
+            sampled_coords, sampled_labels, full_preds = nmt.sample(step, coords, labels)
+            # save the sampling results in a list
+            sampled_coords_arr.append(sampled_coords)
+            sampled_labels_arr.append(sampled_labels)
+            full_preds_arr.append(full_preds)
 
-                sampled_coords_arr.append(sampled_coords_iter)
-                sampled_labels_arr.append(sampled_labels_iter)
-                full_preds_arr.append(full_preds)
-
+        # backpropagation pipeline
         iter_dataset = iter(dataset)
         for batch in range(len(dataset)):
             coords, labels = next(iter_dataset)
-            if not mt and mt_intervals is None:
-                sampled_coords, sampled_labels = coords, labels
-            else:
-                sampled_coords, sampled_labels = sampled_coords_arr[batch], sampled_labels_arr[batch]
+            sampled_coords, sampled_labels = sampled_coords_arr[batch], sampled_labels_arr[batch]
             sampled_coords, sampled_labels = sampled_coords.to(device), sampled_labels.to(device)
+            full_preds = full_preds_arr[batch]
 
+            # inference
             sampled_preds = model(sampled_coords, None) 
-            if not mt and mt_intervals is None:
-                full_preds = sampled_preds
-            else:
-                full_preds = full_preds_arr[batch]
 
             # MSE loss
             loss = ((sampled_preds - sampled_labels) ** 2).mean()
 
-            if batch < len(dataset) - dataset.get_test_idx():
-                # backprop
-                opt.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
-                opt.step()
-            
-            # process reconstructed image for evaluation
-            preds = prep_image_for_eval(full_preds, model_configs, H, W, C, reshape=False)
+            # backprop
+            opt.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+            opt.step()
 
+            # rescale coords back to original image size
             if model_configs.INPUT_OUTPUT.coord_mode != 0:
                 if model_configs.INPUT_OUTPUT.coord_mode != 1:
                     coords = (coords + 1) / 2
                 coords = (coords * torch.tensor([W, H]).to(coords.device))
 
+            # process reconstructed image for evaluation
+            full_preds = prep_image_for_eval(full_preds, model_configs, H, W, C, reshape=False)
+
+            # fill in the original image and reconstructed image with this batch
             x0_coord = torch.round(coords[:, 0].cpu()).long().clamp(0, W-1)
             x1_coord = torch.round(coords[:, 1].cpu()).long().clamp(0, H-1)
-            ori_img[x0_coord, x1_coord] = labels.detach().cpu()
-            ori_img_pred[x0_coord, x1_coord] = preds
+            ori_img[x0_coord, x1_coord] = labels.detach().cpu().numpy()
+            ori_img_pred[x0_coord, x1_coord] = full_preds
 
+            # log the step loss to wandb
             if configs.WANDB_CONFIGS.use_wandb:
-                log_dict = {"loss": loss.item()}
-                wandb.log(log_dict, step=step)
+                log_dict = {"step_loss": loss.item()}
+                wandb.log(log_dict, step=step*len(dataset)+batch)
         
+        # squeeze the image if image is GRAYSCALE
         if ori_img_pred.shape[-1] == 1:
             ori_img_pred = ori_img_pred.squeeze(-1) # Grayscale image
 
+        # step the lr scheduler
         scheduler.step()
 
+        # W&B logging
         if configs.WANDB_CONFIGS.use_wandb and step%train_configs.save_interval==0:
+            # eval the reconstructed image
             psnr_score = psnr_func(ori_img_pred, ori_img, data_range=1)
             ssim_score = ssim_func(ori_img_pred, ori_img, channel_axis=-1, data_range=1)
+            # log the eval stats
             log_dict = {
                         "loss": loss.item(),
                         "psnr": psnr_score,
                         "ssim": ssim_score,
                         "lr": scheduler.get_last_lr()[0],
-                        "mt": mt_ratio,
-                        "mt_interval": mt_intervals
+                        "mt": nmt.get_ratio(),
+                        "mt_interval": nmt.get_interval()
                         }
-            
+
+            # save reconstructed image
             save_image_to_wandb(log_dict, ori_img_pred, "Reconstruction", dataset_configs, H, W)
 
+            # log to wandb
             wandb.log(log_dict, step=step)
 
+        # check if the current psnr score is the highest
         if psnr_score > best_psnr:
+            # update psnr and ssim score
             best_psnr, best_ssim = psnr_score, ssim_score
+            # update best reconstructed image
             best_pred = ori_img_pred
-            # Save best full resolution image
+            # Save best full resolution image locally
             predicted_img = Image.fromarray((ori_img_pred * 255).astype(np.uint8), mode=dataset_configs.color_mode)
             predicted_img.save(os.path.join('outputs', out_dir, 'best_pred.png'))
 
@@ -195,6 +197,7 @@ def train(configs, model, dataset, device='cuda'):
     print("Training finished!")
     print(f"Best psnr: {best_psnr:.4f}, ssim: {best_ssim*100:.4f}")
     if configs.WANDB_CONFIGS.use_wandb:
+        # log the highest psnr and ssim score to wandb
         best_pred = best_pred.squeeze(-1) if dataset_configs.color_mode == 'L' else best_pred
         wandb.log(
                 {
@@ -202,7 +205,8 @@ def train(configs, model, dataset, device='cuda'):
                 "best_ssim": best_ssim
                 }, 
             step=step)
-            
+        
+        # save the best reconstruction to wandb before ending the run
         save_image_to_wandb(log_dict, best_pred, "best_pred", dataset_configs, H, W)
         wandb.finish()
     log.info(f"Best psnr: {best_psnr:.4f}, ssim: {best_ssim*100:.4f}")

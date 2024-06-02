@@ -9,6 +9,56 @@ import skimage
 import os
 
 
+def uniform_grid_sampler(data_size: torch.tensor, grid_size: torch.tensor, samples_per_iteration: int):
+        """
+        Given a uniformly sampled set of points (samples), partition it into equal subsets with the same number
+        of points in each grid.
+
+        n_iterations = n_samples // samples_per_iteration
+
+        Input:
+            - samples: meshgrid of positive integer coordinate values
+            - data_size: (d, d, ..., d) dimensions of the data. For now, assume each axis to share same dim
+        
+        For example:
+            - Given samples (i.e. coordinates) from a 2D image with size (512**2, 2)
+            - Given, grid_size = (8, 8) and samples_per_iteration = 2**15 = 32768
+            - Return a tensor <partitioned_samples> of size (n_iterations, 32768, 2)
+                where for each i, partitioned_samples[i] contains the same number
+                of points in each of the 64 grids.
+        """
+        n_data = torch.prod(data_size)
+        n_grids = torch.prod(grid_size).item()
+        
+        assert n_data % samples_per_iteration == 0, "samples_per_iteration must be a factor of n_data. data_size: %s n_data: %s\t samples: %s" % (data_size, n_data, samples_per_iteration)
+        assert samples_per_iteration % n_grids == 0, "samples_per_iteration must be a factor of n_grids"
+
+        data_dim = len(data_size)
+        n_iterations = n_data // samples_per_iteration
+        samples_per_grid = n_data // n_grids
+        grid_dim = (data_size / grid_size).int()
+        samples_per_grid_per_iter = samples_per_iteration // n_grids
+
+        subsamples = torch.stack(torch.meshgrid([torch.linspace(0, grid_dim[i]-1, grid_dim[i]) for i in range(data_dim)], indexing='ij'), dim=-1).view(-1, data_dim)
+        # Randomize the subsamples
+        random_idx = torch.randperm(len(subsamples))
+        subsamples = subsamples[random_idx]
+        # Partition the subsamples into n_iterations
+        subsamples = subsamples.view(n_iterations, -1, data_dim)
+        # Generate meshgrid of grid coordinates
+        grid_coords = torch.stack(torch.meshgrid([torch.linspace(0, grid_size[i]-1, grid_size[i]) for i in range(data_dim)], indexing='ij'), dim=-1).view(-1, data_dim)
+        # Get n_grids copies of the meshgrid of coordinates (these coordinates are bounded by the grid size)
+        subsamples = subsamples.unsqueeze(1).repeat(1, n_grids, 1, 1)
+        # Padding
+        grid_paddings = grid_coords * grid_dim
+        # Multiple the meshgrid of coordinates by the grid coordinates to get the actual coordinates (bounded by data_dim)
+        subsamples = subsamples + grid_paddings.unsqueeze(0).unsqueeze(2) 
+        # Target shape: (n_iterations, n_grids * 512, data_dim)
+        partitioned_samples = subsamples.view(n_iterations, -1, data_dim)
+        
+        return partitioned_samples
+
+
 class AudioFileDataset(torchaudio.datasets.LIBRISPEECH):
     def __init__(
         self,
@@ -332,3 +382,68 @@ class MeshSDF(Dataset):
     def get_data(self):
         coords, sdf = self.sample_surface()
         return torch.from_numpy(coords).float(), torch.from_numpy(sdf).float()
+
+
+class BigImageFileDataset(Dataset):
+    def __init__(self, dataset_configs, input_output_configs):
+        super().__init__()
+        Image.MAX_IMAGE_PIXELS = 1000000000
+        self.config = dataset_configs
+        self.coord_mode = input_output_configs.coord_mode
+        self.data_range = input_output_configs.data_range
+        self.color_mode = dataset_configs.color_mode
+        self.grid_dims = input_output_configs.grid_dims
+
+        self.gpu_max_coords = dataset_configs.max_coords
+        self.img = Image.open(dataset_configs.file_path)
+        if hasattr(dataset_configs, 'img_size') and dataset_configs.img_size is not None:
+            self.img = self.img.resize(dataset_configs.img_size)
+
+        self.img = self.img.convert(self.color_mode)
+        self.C = len(self.img.mode)
+
+        self.W, self.H = self.img.size
+        
+        self.img = torch.tensor(np.array(self.img))
+        self.img = self.img / 255      #(self.img / 255 - 0.5) * 2
+
+        print("Image size: ", self.img.shape)
+
+        self.raw_coords = uniform_grid_sampler(torch.tensor([self.H, self.W]), torch.tensor(self.grid_dims), self.gpu_max_coords)
+
+        if self.coord_mode == 0:
+            pass
+        elif self.coord_mode == 1:
+            self.coords = self.raw_coords / torch.tensor([self.H, self.W])      # [0, 1]^3
+        elif self.coord_mode == 2:
+            self.coords = (self.raw_coords / torch.tensor([self.H, self.W]) - 0.5) * 2       # [-1, 1]^3
+        elif self.coord_mode == 3:
+            self.coords = (self.raw_coords / torch.tensor([self.H, self.W]) - 0.5) * 2       # [-1, 0.999999]^2
+        elif self.coord_mode == 4:
+            self.coords = self.raw_coords / torch.tensor([self.H, self.W]) - 0.5    # [0.5, 0.5]^2
+        else:
+            raise ValueError("Invalid coord_mode")
+
+        self.dim_in = 2
+        self.dim_out = 3 if self.color_mode == 'RGB' else 1
+
+        self.sampled_coords = [self.coords[i] for i in range(self.coords.shape[0])]
+        self.sampled_img = [self.img[self.raw_coords[i].long()[:, 0], self.raw_coords[i].long()[:, 1], :].view(-1, self.C) for i in range(self.raw_coords.shape[0])]
+
+    def __len__(self):
+        return self.coords.shape[0]
+
+    def __getitem__(self, idx):
+        return self.sampled_coords[idx], self.sampled_img[idx]
+    
+    def get_h(self):
+        return self.H
+    
+    def get_w(self):
+        return self.W
+    
+    def get_c(self):
+        return self.C
+
+    def get_data_shape(self):
+        return (self.H, self.W, self.C)

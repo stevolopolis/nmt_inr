@@ -45,10 +45,16 @@ class NMT:
         self.sampled_y = None
 
         self.save_interval = save_interval
-        self.sampling_path = Path(save_samples_path) if type(save_samples_path) is not Path else save_samples_path
-        self.sampling_path.mkdir(parents=True, exist_ok=True)
-        self.loss_path = Path(save_losses_path) if type(save_losses_path) is not Path else save_losses_path
-        self.loss_path.mkdir(parents=True, exist_ok=True)
+        if save_samples_path is not None:
+            self.sampling_path = Path(save_samples_path) if type(save_samples_path) is not Path else save_samples_path
+            self.sampling_path.mkdir(parents=True, exist_ok=True)
+        else:
+            self.sampling_path = None
+        if save_losses_path is not None:
+            self.loss_path = Path(save_losses_path) if type(save_losses_path) is not Path else save_losses_path
+            self.loss_path.mkdir(parents=True, exist_ok=True)
+        else:
+            self.loss_path = None
         self.save_name = f"mt${starting_ratio}_${strategy}_${scheduler}_topk${top_k}" if save_name is None else save_name
 
         self.save_sample_path = None
@@ -83,6 +89,7 @@ class NMT:
         elif not mt and self.mt_intervals is None:
             self.sampled_x = x
             self.sampled_y = y
+            self.preds = y
 
         return self.sampled_x, self.sampled_y, self.preds
 
