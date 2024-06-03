@@ -61,7 +61,7 @@ def train(configs, model, dataset, device='cuda'):
     # nmt setup
     nmt = NMT(model,
               train_configs.iterations,
-              (C),
+              (C,),
               exp_configs.scheduler_type,
               exp_configs.strategy_type,
               exp_configs.mt_ratio,
@@ -118,8 +118,8 @@ def train(configs, model, dataset, device='cuda'):
                             "loss": loss.item(),
                             "iou": iou,
                             "lr": scheduler.get_last_lr()[0],
-                            "mt": mt_ratio,
-                            "mt_interval": mt_intervals
+                            "mt": nmt.get_ratio(),
+                            "mt_interval": nmt.get_interval()
                             }
                 # Save ground truth image (only at 1st iteration)
                 if step == 0:
