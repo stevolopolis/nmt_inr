@@ -34,6 +34,7 @@ def save_src_for_reproduce(configs, out_dir):
 
 
 def train(configs, model, dataset, device='cuda'):
+    # load configs
     train_configs = configs.TRAIN_CONFIGS
     dataset_configs = configs.DATASET_CONFIGS
     exp_configs = configs.EXP_CONFIGS
@@ -65,7 +66,7 @@ def train(configs, model, dataset, device='cuda'):
     coords, labels = dataset.get_data()
     coords, labels = coords.to(device), labels.to(device)
     ori_audio = labels.flatten().cpu().detach().numpy()
-    ori_audio = (ori_audio*2) - 1 if model_configs.INPUT_OUTPUT.data_range == 0 else ori_audio # [-1,1]
+    ori_audio = (ori_audio*2) - 1 if model_configs.INPUT_OUTPUT.data_range == 0 else ori_audio      # [-1,1]
 
     # nmt setup
     nmt = NMT(model,
@@ -82,8 +83,6 @@ def train(configs, model, dataset, device='cuda'):
     
 
     # sampling log
-    sampling_history = dict()
-    loss_history = dict()
     psnr_milestone = False
 
     # train
@@ -91,6 +90,7 @@ def train(configs, model, dataset, device='cuda'):
         # mt sampling
         sampled_coords, sampled_labels, full_preds = nmt.sample(step, coords, labels)
 
+        # forward pass
         sampled_preds = model(sampled_coords, None)
         # MSE loss
         loss = ((sampled_preds - sampled_labels) ** 2).mean()
@@ -162,10 +162,6 @@ def train(configs, model, dataset, device='cuda'):
 @hydra.main(version_base=None, config_path='config', config_name='train_audio')
 def main(configs):
     configs = EasyDict(configs)
-
-    # Save run name with current time
-    # time_str = str(datetime.datetime.now().time()).replace(":", "").replace(".", "")
-    # configs.TRAIN_CONFIGS.out_dir += "_" + time_str
 
     # Seed python, numpy, pytorch
     seed_everything(configs.TRAIN_CONFIGS.seed)
