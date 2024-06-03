@@ -26,7 +26,7 @@ NETWORK_CONFIGS:
 
 DATASET_CONFIGS:
   data_type: sdf
-  xyz_file: /home/steven/datasets/sdf/lucy.xyz
+  xyz_file: ../datasets/sdf/lucy.xyz
   num_samples: 50000
   # default settings from BACON
   coarse_scale: 1.0e-1
