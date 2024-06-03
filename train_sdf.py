@@ -72,8 +72,6 @@ def train(configs, model, dataset, device='cuda'):
               save_interval=train_configs.save_interval)
     
     # sampling log
-    sampling_history = dict()
-    loss_history = dict()
     iou_milestone = False
 
     # train
