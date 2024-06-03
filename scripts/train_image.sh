@@ -30,3 +30,4 @@ do
     WANDB_CONFIGS.group="${wandb_group}" \
     WANDB_CONFIGS.wandb_project="${wandb_project}" \
     model_config="${model}" &> "logs/logs/${model}_mt${ratio}_${strategy}_${scheduler}_${lr_scheduler}_topk${top_k}_kodim${img[i]}.txt"
+done
