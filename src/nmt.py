@@ -90,7 +90,7 @@ class NMT:
             self.loss_path.mkdir(parents=True, exist_ok=True)
         else:
             self.loss_path = None
-        self.save_name = f"mt${starting_ratio}_${strategy}_${scheduler}_topk${top_k}" if save_name is None else save_name
+        self.save_name = f"mt{starting_ratio}_{strategy}_{scheduler}_topk{top_k}" if save_name is None else save_name
 
         self.save_sample_path = None
         self.save_loss_path = None
