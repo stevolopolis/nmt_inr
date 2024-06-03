@@ -25,18 +25,6 @@ python setup.py install
 ```
 
 
-```
-conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
-conda install conda-forge::einops
-conda install conda-forge::easydict
-conda install conda-forge::hydra-core
-conda install conda-forge::wandb
-conda install conda-forge::scikit-learn
-conda install anaconda::scikit-image
-conda install tqdm
-pip install pymcubes pykdtree open3d trimesh
-```
-
 ## Using the NMT Sampling algorithm
 Please view the README in `src/` and read the docstrings of the NMT class in `src/nmt.py`.
 
