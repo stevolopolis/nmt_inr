@@ -38,3 +38,14 @@ The `train_<data>.py` files are training codes for the specific data modalities 
 Optimized NMT algo
 - if mt ratio > ??, do only 1 forward pass (with gradients) and use subset of gradients for backward pass
 - if mt ratio < ??, do 1 forward pass (without gradients) and do another subset forward pass (with gradients) for backward pass
+
+## Citation
+If you find our work useful in your research, please cite:
+```
+@InProceedings{zhang2024ntinr,
+    title={Nonparametric Teaching of Implicit Neural Representations},
+    author={Zhang, Chen and Luo, Steven and Li, Jason and Wu, Yik-Chung and Wong, Ngai},
+    booktitle = {ICML},
+    year={2024}
+}
+```
