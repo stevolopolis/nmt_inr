@@ -4,7 +4,7 @@
 
 [[`Paper`](https://arxiv.org/pdf/2405.10531)] | [[`Project Page`](https://chen2hang.github.io/_publications/nonparametric_teaching_of_implicit_neural_representations/int.html)]
 
-PyTorch implementation the INT algorithm for INRs. For details, see the paper **[Nonparametric Teaching of Implicit Neural Representations](https://arxiv.org/pdf/2405.10531)**.
+This is the official PyTorch implementation of the paper **[Nonparametric Teaching of Implicit Neural Representations](https://arxiv.org/pdf/2405.10531)** (the INT algorithm for INRs).
 
 ## INT Workflow
 <div align="center">
@@ -49,3 +49,6 @@ If you find our work useful in your research, please cite:
     year={2024}
 }
 ```
+
+## Contact
+If you have any questions, please feel free to email the authors.
