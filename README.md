@@ -1,8 +1,4 @@
-# Overview Demos
-
-![](https://chen2hang.github.io/_publications/nonparametric_teaching_of_implicit_neural_representations/demos/kodim24.gif)
-
-# NMT INR
+# INT: Nonparametric Teaching of Implicit Neural Representations
 
 [Chen Zhang](https://chen2hang.github.io/), [S.T.S Luo](https://www.cs.toronto.edu/~stevenlts/index.html), [Jason Chun Lok Li](https://hk.linkedin.com/in/jason-chun-lok-li-0590b3166), [Yik-Chung Wu](https://www.eee.hku.hk/~ycwu/), [Ngai Wong](https://www.eee.hku.hk/~nwong/)
 
@@ -10,6 +6,9 @@
 
 PyTorch implementation the INT algorithm for INRs. For details, see the paper **[Nonparametric Teaching of Implicit Neural Representations](https://arxiv.org/pdf/2405.10531)**.
 
+## INT Workflow
+
+<img src="https://chen2hang.github.io/_publications/nonparametric_teaching_of_implicit_neural_representations/figure1.png" width="300px" alt="" />
 
 ## Code structure
 - `train_image.py` - Main training code
