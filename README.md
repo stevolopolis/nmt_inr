@@ -1,24 +1,6 @@
-<style>
-	    .gif-container {
-	      display: flex;
-	      flex-wrap: wrap;
-	      justify-content: space-between;
-	    }
-	    .gif-container img {
-	      width: 24%;
-	      height: auto;
-	      margin-bottom: 5px;
-	    }
-</style>
-
 # Overview Demos
 
-<div class="gif-container">
-		    <img src="https://chen2hang.github.io/_publications/nonparametric_teaching_of_implicit_neural_representations/demos/kodim05.gif" >
-		    <img src="https://chen2hang.github.io/_publications/nonparametric_teaching_of_implicit_neural_representations/demos/kodim14.gif" >
-		    <img src="https://chen2hang.github.io/_publications/nonparametric_teaching_of_implicit_neural_representations/demos/kodim22.gif" >
-		    <img src="https://chen2hang.github.io/_publications/nonparametric_teaching_of_implicit_neural_representations/demos/kodim24.gif" >
-</div>
+![](https://chen2hang.github.io/_publications/nonparametric_teaching_of_implicit_neural_representations/demos/kodim24.gif)
 
 # NMT INR
 
