@@ -31,7 +31,7 @@ The `train_<data>.py` files are training codes for the specific data modalities 
 
 #### Toy 2D Cameraman fitting.
 <div align="center">
-  <img src="https://github.com/stevolopolis/nmt_inr/blob/clean/asset/best_pred_summary.png?raw=true" width="100%">
+  <img src="https://github.com/stevolopolis/nmt_inr/blob/main/asset/best_pred_summary.png" width="100%">
 </div>
 
 ## Coming soon
