@@ -5,15 +5,18 @@ TRAIN_CONFIGS:
   mt_save_interval: 1000
   device: cuda:0
   seed: 42
-  sampling_path: sampling_history.pkl
-  loss_path: loss_history.pkl
+  sampling_path: logs/sampling
+  loss_path: logs/loss
+  save_name: siren_sdf_trial
+  no_io: 0
 
 EXP_CONFIGS:
   scheduler_type: step
   mt_ratio: 0.2
   optimizer_type: adam
   lr_scheduler_type: cosine
-  strategy_type: void
+  strategy_type: incremental
+  top_k: 1
 
 NETWORK_CONFIGS:
   lr: 1e-4
@@ -23,7 +26,7 @@ NETWORK_CONFIGS:
 
 DATASET_CONFIGS:
   data_type: sdf
-  xyz_file: data/stanford3d/gt_lucy.xyz
+  xyz_file: ../datasets/sdf/lucy.xyz
   num_samples: 50000
   # default settings from BACON
   coarse_scale: 1.0e-1
@@ -31,10 +34,10 @@ DATASET_CONFIGS:
   render_resolution: 512
 
 WANDB_CONFIGS:
-  use_wandb: 0
-  wandb_project: sdf
+  use_wandb: 1
+  wandb_project: mt_visualization
   wandb_entity: hku_inr
-  group: lucy
+  group: sdf
 
 defaults:
   - model_config: siren

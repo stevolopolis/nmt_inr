@@ -15,9 +15,7 @@ from sdf_utils import open3d_utils
 import mcubes
 import trimesh
 
-from scheduler import *
-from sampler import mt_sampler, save_samples, save_losses
-from strategy import strategy_factory
+from nmt import NMT
 from utils import seed_everything, get_dataset, get_model
 
 log = logging.getLogger(__name__)
@@ -51,9 +49,6 @@ def train(configs, model, dataset, device='cuda'):
     elif exp_configs.lr_scheduler_type == "cosine":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, train_configs.iterations, eta_min=1e-6)
 
-    mt_scheduler = mt_scheduler_factory(exp_configs.scheduler_type)
-    strategy = strategy_factory(exp_configs.strategy_type)
-
     # prepare training settings
     model.train()
     model = model.to(device)
@@ -63,10 +58,20 @@ def train(configs, model, dataset, device='cuda'):
     best_iou, best_cd = 0, float("inf")
     best_mesh = None
 
-
+    # nmt setup
+    nmt = NMT(model,
+              train_configs.iterations,
+              (C,),
+              exp_configs.scheduler_type,
+              exp_configs.strategy_type,
+              exp_configs.mt_ratio,
+              exp_configs.top_k,
+              save_samples_path=train_configs.sampling_path,
+              save_losses_path=train_configs.loss_path,
+              save_name=None,
+              save_interval=train_configs.save_interval)
+    
     # sampling log
-    sampling_history = dict()
-    loss_history = dict()
     iou_milestone = False
 
     # train
@@ -75,22 +80,9 @@ def train(configs, model, dataset, device='cuda'):
         coords, labels = coords.to(device), labels.to(device)  
 
         # mt sampling
-        mt_ratio = mt_scheduler(step, train_configs.iterations, float(exp_configs.mt_ratio))
-        mt, mt_intervals = strategy(step, train_configs.iterations)
-
-        if mt:
-            with torch.no_grad():
-                full_batch_preds = model(coords)
-                sampled_batch_coords, sampled_batch_labels, idx, dif = mt_sampler(coords, labels, full_batch_preds, mt_ratio)
-                if step % train_configs.mt_save_interval == 0:
-                    save_samples(sampling_history, step, train_configs.iterations, sampled_batch_coords, train_configs.sampling_path)
-                    save_losses(loss_history, step, train_configs.iterations, dif, train_configs.loss_path)
-        elif not mt and mt_intervals is None:
-            sampled_batch_coords, sampled_batch_labels = coords, labels
-
+        sampled_batch_coords, sampled_batch_labels, full_batch_preds = nmt.sample(step, coords, labels)
+        
         sampled_batch_preds = model(sampled_batch_coords)
-        if not mt and mt_intervals is None:
-            full_batch_preds = sampled_batch_preds
 
         # MSE loss
         loss = ((sampled_batch_preds - sampled_batch_labels) ** 2).mean()
@@ -124,8 +116,8 @@ def train(configs, model, dataset, device='cuda'):
                             "loss": loss.item(),
                             "iou": iou,
                             "lr": scheduler.get_last_lr()[0],
-                            "mt": mt_ratio,
-                            "mt_interval": mt_intervals
+                            "mt": nmt.get_ratio(),
+                            "mt_interval": nmt.get_interval()
                             }
                 # Save ground truth image (only at 1st iteration)
                 if step == 0:
