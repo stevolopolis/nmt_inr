@@ -22,9 +22,9 @@ Install the NMT package
 python setup.py install
 ```
 
-
 ## Using the NMT Sampling algorithm
 Please view the README in `src/` and read the docstrings of the NMT class in `src/nmt.py`.
+
 
 ## Reproducing published results
 The `train_<data>.py` files are training codes for the specific data modalities reported in the paper, while the bash scripts in `scripts/` are used to produce the results. The configuration files (i.e. model config, experimental config, etc.) are located in `config` in the form of `.yaml` files. The config files in this repo do not contain the configurations for all the reported experiments. To reproduce the experimental results, please refer to the paper and amend the configuration files accordingly. 
