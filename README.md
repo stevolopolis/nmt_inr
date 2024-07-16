@@ -1,6 +1,6 @@
 # Nonparametric Teaching of Implicit Neural Representations
 
-[Chen Zhang](https://chen2hang.github.io/), [S.T.S Luo](https://www.cs.toronto.edu/~stevenlts/index.html), [Jason Chun Lok Li](https://hk.linkedin.com/in/jason-chun-lok-li-0590b3166), [Yik-Chung Wu](https://www.eee.hku.hk/~ycwu/), [Ngai Wong](https://www.eee.hku.hk/~nwong/)
+[Chen Zhang*](https://chen2hang.github.io/), [S.T.S Luo*](https://www.cs.toronto.edu/~stevenlts/index.html), [Jason Chun Lok Li](https://hk.linkedin.com/in/jason-chun-lok-li-0590b3166), [Yik-Chung Wu](https://www.eee.hku.hk/~ycwu/), [Ngai Wong](https://www.eee.hku.hk/~nwong/)
 
 [[`Paper`](https://arxiv.org/pdf/2405.10531)] | [[`Project Page`](https://chen2hang.github.io/_publications/nonparametric_teaching_of_implicit_neural_representations/int.html)]
 
