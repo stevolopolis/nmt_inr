@@ -39,6 +39,11 @@ Optimized NMT algo
 - if mt ratio > ??, do only 1 forward pass (with gradients) and use subset of gradients for backward pass
 - if mt ratio < ??, do 1 forward pass (without gradients) and do another subset forward pass (with gradients) for backward pass
 
+## Related works
+Related works for developing a deeper understanding of INT are: <br>
+<p class="indented">[NeurIPS 2023] <a href="https://www.matthewtancik.com/nerf">Nonparametric Teaching for Multiple Learners</a>,</p>
+<p class="indented">[ICML 2023] <a href="https://www.matthewtancik.com/nerf">Nonparametric Iterative Machine Teaching</a>.<br></p>
+
 ## Citation
 If you find our work useful in your research, please cite:
 ```
